@@ -1,18 +1,20 @@
 /*
-Version: V6.1 
+Version: V1.1 
 Next version to-do:
 - project mode: allow transpose editing with rotary edit
 
 
-6.1
+1.1
 - project mode: allow tempo editing with rotary encoder
 - bottom 4 knobs in main menu screen edits
 
-6.0 (7.5.2022)
+1.0 (7.5.2022)
+- intial import from storage  
 - added merging for second midi in/out port
+
 */
 
-const char version_number[] = "v6.1";
+const char version_number[] = "v1.1";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
