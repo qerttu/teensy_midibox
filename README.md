@@ -3,7 +3,7 @@
 This little project of mine was intended for the following use cases:
 - allow (global) transpose and octaves for my 4 synths
 - note mapping between Volca sample and MPC1000
-- allow saving option via sysex for my step sequencer Launchpad pro (with custom firmware "thirtytwo")
+- allow saving option via sysex for my step sequencer Launchpad pro (with custom firmware ["thirtytwo"](https://github.com/qerttu/ThirtyTwo))
 - provide midi clock to my setup
 - midi merge with two MIDI ports
 
