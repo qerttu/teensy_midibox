@@ -50,6 +50,12 @@ const char version_number[] = "v1.1";
 #define BUTTON_ON 0
 #define BUTTON_OFF 1
 
+// rotary edit contstants
+#define R_TEMPO 1
+#define R_TRANSPOSE 2
+
+#define R_MAX = 2;
+
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, MIDI2);
 
@@ -195,7 +201,7 @@ long positionEnc  = -999;
 int encCount = 0;
 int stateChange = 0;
 static boolean rotating=false;
-bool rotEditValue = false;
+byte rotEditValue = 0;
 
 
 Bounce swButton = Bounce(sw_pin, 10);
@@ -1298,7 +1304,7 @@ void mySystemExclusive(byte *data, unsigned int length) {
       setTempo(scene_temp);
 
       // set rotary edit to false      
-      rotEditValue = false;
+      rotEditValue = 0;
 
       // refresh screen
       if (menuMode==PROJECT) {
@@ -2397,15 +2403,24 @@ void updateEncButton() {
        // **************** PROJECT **************
        if (menuMode==PROJECT) {
 
-          toggleRotEdit(); 
-          if (rotEditValue) {
+          toggleRotEdit();
+
+          // clear edit marks
+          lcd.setCursor(0,1);
+          lcd.print(" ");
+          lcd.setCursor(9,1);
+          lcd.print(" ");
+
+          if (rotEditValue==R_TEMPO) {
               lcd.setCursor(0,1);
+              lcd.print("*");           
+            }
+          
+          if (rotEditValue==R_TRANSPOSE) {
+              lcd.setCursor(9,1);
               lcd.print("*");
             }
-          else {
-              lcd.setCursor(0,1);
-              lcd.print(" ");
-            }
+        
                  
        }
 
@@ -2561,12 +2576,12 @@ void updateEnc() {
     // if turned in project menu, go straight to main menu
     else if (menuState==SUB && menuMode==PROJECT) {
       
-      if (!rotEditValue) {
+      if (rotEditValue==0) {
         menuMode = OCTAVE;
         menuState=MAIN;
         lcdMainMenu(99);
         }
-       else {
+       else if(rotEditValue==R_TEMPO) {
         
         if (((project.scene_tempo[project.scene]+v) >= minTempo) && ((project.scene_tempo[project.scene]+v)<=maxTempo)) {
 
@@ -2583,6 +2598,9 @@ void updateEnc() {
           lcd.print(project.scene_tempo[project.scene]);
           } 
         }
+        else if (rotEditValue==R_TRANSPOSE) {
+          //TO-DO
+          }
       }
     
     // ************** LOAD *****************
@@ -2736,18 +2754,29 @@ void toggleMidiStart() {
 }
 
 void toggleRotEdit() {
-  if (rotEditValue) {
-    rotEditValue = false;
-  }
-  else {
-    rotEditValue = true;
-  }
+
+switch (rotEditValue) {
+
+case 0:
+  rotEditValue = R_TEMPO;
+break;
+
+case R_TEMPO:
+  rotEditValue  = R_TRANSPOSE;
+break;
+
+case R_TRANSPOSE:
+  rotEditValue = 0;
+break;
+}
+
+// TO BE CONTINUED FROM HERE
 
   #ifdef DEBUG2
     Serial.print("rotEditValue:");
     Serial.print(rotEditValue);
   #endif
- }
+}
 
 void setTempo(byte sc) {
     
