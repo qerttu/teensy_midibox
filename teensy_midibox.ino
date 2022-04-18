@@ -1,7 +1,11 @@
 /*
-Version: V1.1 
+Version: V1.2 
 Next version to-do:
 - project mode: allow transpose editing with rotary edit
+
+
+1.2
+- midi handlers for USBMidi -> 5 pin (no need to connect launchpad with 5pin anymore)
 
 
 1.1
@@ -14,7 +18,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v1.1";
+const char version_number[] = "v1.2";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -55,6 +59,10 @@ const char version_number[] = "v1.1";
 #define R_TRANSPOSE 2
 
 #define R_MAX = 2;
+
+#define MIDI_START 0xFA
+#define MIDI_STOP 0xFC
+#define MIDI_TIMING_CLOCK 0xF8
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, MIDI2);
@@ -263,11 +271,6 @@ void setup()
     pinMode(bs_pin, INPUT_PULLUP);
     Serial.begin(57600);
 
-
-    // USB midi setups
-    myusb.begin();
-    midi1.setHandleSystemExclusive(mySystemExclusive); 
-
     // SD CARD setups
     #ifdef DEBUG
       Serial.print("Initializing SD card...");  
@@ -292,44 +295,51 @@ void setup()
    //   dataFile.close();
 
       
-    // Connect the handleNoteOn function to the library,
-    // so it is called upon reception of a NoteOn.
+    // MIDI HANDLERS
+    midi1.setHandleSystemExclusive(mySystemExclusive); 
+    
     MIDI.setHandleNoteOn(handleNoteOn);  // Put only the name of the function
     MIDI2.setHandleNoteOn(handleNoteOn);
+    midi1.setHandleNoteOn(handleNoteOn);
+    
 
     // Do the same for NoteOffs
     MIDI.setHandleNoteOff(handleNoteOff);
     MIDI2.setHandleNoteOff(handleNoteOff);
-
+    midi1.setHandleNoteOff(handleNoteOff);
 
     // handle midi cloc
     MIDI.setHandleClock(myClock);
     MIDI2.setHandleClock(myClock);
+    midi1.setHandleClock(myClock);
 
 
     // handle midi start
     MIDI.setHandleStart(myStart);
     MIDI2.setHandleStart(myStart);
+    midi1.setHandleStart(myStart);
 
 
     // handle stop
     MIDI.setHandleStop(myStop);
     MIDI2.setHandleStop(myStop);
+    midi1.setHandleStop(myStop);
 
 
     // handle continue
     MIDI.setHandleContinue(myContinue);
     MIDI2.setHandleContinue(myContinue);
+    midi1.setHandleContinue(myContinue);
 
 
     // Initiate MIDI communications, listen to all channels
+    myusb.begin();
     MIDI.begin(MIDI_CHANNEL_OMNI);
     MIDI2.begin(MIDI_CHANNEL_OMNI);
 
     // turn midi thru off
     MIDI.turnThruOff();
     MIDI2.turnThruOff();
-
 
     // Initiate led for output
     pinMode(ledPin, OUTPUT);
@@ -424,6 +434,11 @@ void loop()
 
 void myStart() {
   tempoCount = 0;
+
+  //send start to 5 pin midi ports
+  MIDI.sendRealTime(MIDI_START);
+  MIDI2.sendRealTime(MIDI_START);
+  
   #ifdef DEBUG
     Serial.println("START"); 
   #endif
@@ -431,6 +446,11 @@ void myStart() {
 
 void myStop() {
   analogWrite(ledPin, ledLow); 
+
+ // send stop to 5 pin midi ports
+ MIDI.sendRealTime(MIDI_STOP);
+ MIDI2.sendRealTime(MIDI_STOP);
+   
  #ifdef DEBUG
   Serial.println("STOP"); 
  #endif
@@ -445,6 +465,12 @@ void myContinue() {
 }
 
 void myClock() {
+
+  // send midi clock to 5 pin midi ports
+    MIDI.sendRealTime(MIDI_TIMING_CLOCK);
+   MIDI2.sendRealTime(MIDI_TIMING_CLOCK);
+  
+  // LED stuff
   if ((tempoCount >= 0) && (tempoCount < 12)) {
     analogWrite(ledPin,ledLow);
   }
@@ -457,6 +483,9 @@ void myClock() {
   if(tempoCount > 23) {
     tempoCount = 0;
   }
+
+
+  
 }
 
 void handleNoteOn(byte channel, byte note, byte velocity)
