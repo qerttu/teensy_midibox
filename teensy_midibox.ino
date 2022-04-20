@@ -30,7 +30,7 @@ const char version_number[] = "v1.2";
 
 #include <Encoder.h>
 
-#define DEBUG
+//#define DEBUG
 #define DEBUG2
 
 #define PROJECT 0
@@ -561,17 +561,37 @@ void handleNoteOn(byte channel, byte note, byte velocity)
   // if channel is lead AND every first two octaves OR channel is already L1 channel, play L1 
 
   if ((channel==lead_channel && ((note>=0 && note <24) || (note>=48 && note <72) || (note >=96 && note<120))) || channel==project.l1_channel) {
-      MIDI.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
-      MIDI2.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
-      notesPlaying=notesPlaying+1; 
       
-      #ifdef DEBUG
+      if (bassMode==0) {
+        MIDI.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
+        MIDI2.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
+        notesPlaying=notesPlaying+1; 
+       
+       #ifdef DEBUG
         Serial.print("Note ON: ");
         Serial.print(note + (project.l1_oct*12) + project.transpose);
         Serial.print("Channel: ");
         Serial.print(project.l1_channel);
         Serial.println();   
-      #endif   
+      #endif 
+      }
+      
+      if (bassMode==1) {
+       MIDI.sendNoteOn(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
+       MIDI2.sendNoteOn(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
+       notesPlaying=notesPlaying+1; 
+      
+      #ifdef DEBUG
+        Serial.print("Note ON: ");
+        Serial.print(note + (project.b1_oct*12) + project.transpose);
+        Serial.print("Channel: ");
+        Serial.print(project.b1_channel);
+        Serial.println();   
+      #endif 
+      }
+      
+
+      
     }
 
   // if channel is lead AND every last two octaves OR channel is already L2 channel, play L2
@@ -786,17 +806,34 @@ void handleNoteOff(byte channel, byte note, byte velocity)
   // if channel is lead AND every first two octaves OR channel is already L1 channel, play L1 
 
   if ((channel==lead_channel && ((note>=0 && note <24) || (note>=48 && note <72) || (note >=96 && note<120))) || channel==project.l1_channel) {
-      MIDI.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
-      MIDI2.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
-      notesPlaying=notesPlaying-1; 
       
-      #ifdef DEBUG
-        Serial.print("Note OFF: ");
+      if (bassMode==0) {
+        MIDI.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
+        MIDI2.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
+        notesPlaying=notesPlaying-1; 
+       #ifdef DEBUG
+        Serial.print("Note ON: ");
         Serial.print(note + (project.l1_oct*12) + project.transpose);
         Serial.print("Channel: ");
         Serial.print(project.l1_channel);
         Serial.println();   
-      #endif   
+      #endif 
+      }
+      
+      if (bassMode==1) {
+       MIDI.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
+       MIDI2.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
+       notesPlaying=notesPlaying-1; 
+      #ifdef DEBUG
+        Serial.print("Note ON: ");
+        Serial.print(note + (project.b1_oct*12) + project.transpose);
+        Serial.print("Channel: ");
+        Serial.print(project.b1_channel);
+        Serial.println();   
+      #endif 
+      }
+
+
     }
 
   // if channel is lead AND every last two octaves OR channel is already L2 channel, play L2
