@@ -1,8 +1,12 @@
 /*
-Version: V1.3 
+Version: V1.4 
 Next version to-do:
 - project mode: allow transpose editing with rotary edit
-- CC support for play modes
+
+1.4.
+- new playmode "L&B" which plays both lead and bass at the same time
+- CC support for play modes (110&111 momentary buttons for selecting modes; pressing two both will select the new mode)
+
 
 1.3
 - fixes to scene tempo
@@ -21,7 +25,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v1.3";
+const char version_number[] = "v1.4";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
