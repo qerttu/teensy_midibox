@@ -1,7 +1,7 @@
 /*
-Version: V1.4 
 
 Next version to-do:
+
 1.5
 - fixed project display for tempo change when rotating
 - midi note mapping from MPC JJOS Free -> JJOS2XL (midi channel 13)
