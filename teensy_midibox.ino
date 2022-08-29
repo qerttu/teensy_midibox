@@ -1,9 +1,13 @@
 /*
 Version: V1.4 
-Next version to-do:
-- project mode: allow transpose editing with rotary edit
 
-1.4.
+Next version to-do:
+1.5
+- fixed project display for tempo change when rotating
+- midi note mapping from MPC JJOS Free -> JJOS2XL (midi channel 13)
+
+1.4
+- project mode: allow transpose editing with rotary edit
 - new playmode "L&B" which plays both lead and bass at the same time
 - CC support for play modes (110&111 momentary buttons for selecting modes; pressing two both will select the new mode)
 
@@ -25,7 +29,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v1.4";
+const char version_number[] = "v1.5";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -37,7 +41,7 @@ const char version_number[] = "v1.4";
 
 #include <Encoder.h>
 
-//#define DEBUG
+#define DEBUG
 //#define DEBUG2
 
 #define PROJECT 0
@@ -121,10 +125,11 @@ bool pot6Ok = false;
 const int ledHigh = 255;
 const int ledLow = 10;
 
-//midi channels in Alesis Micron
+//midi channels 
 const int bass_channel = 2;
 const int lead_channel = 1;
 const int sample_channel = 11;
+const int mpc_channel = 13;
 
 // instrument names and channels
 const int meeb = 5;
@@ -721,12 +726,12 @@ void handleNoteOn(byte channel, byte note, byte velocity)
   */
 
   // if incoming is for sample, do mapping
-  if (channel==sample_channel)
+  if ((channel==sample_channel) || (channel==mpc_channel))
   {
     // do mapping ...
       byte mappedNote;
       
-      switch (note) {
+      switch (note) {       
        case 37:
        mappedNote = 36;
         break;
@@ -757,13 +762,80 @@ void handleNoteOn(byte channel, byte note, byte velocity)
       case 47:
         mappedNote = 45;
         break;           
-      default:
-        mappedNote = 37;
+      case 45:
+        mappedNote = 46;
+        break;           
+      case 43:
+        mappedNote = 47;
+        break;           
+      case 49:
+        mappedNote = 48;
+        break;           
+      case 55:
+        mappedNote = 49;
+        break;           
+      case 51:
+        mappedNote = 50;
+        break;           
+      case 53:
+        mappedNote = 51;
+        break;           
+
+       case 54:
+       mappedNote = 52;
         break;
+      case 69:
+        mappedNote = 53;
+        break;
+      case 81:
+        mappedNote = 54;
+        break;
+      case 80:
+        mappedNote = 55;
+        break;
+       case 65:
+        mappedNote = 56;
+        break;
+      case 66:
+        mappedNote = 57;
+        break;
+      case 76:
+        mappedNote = 58;
+        break;
+      case 77:
+        mappedNote = 59;
+        break;
+      case 56:
+        mappedNote = 60;
+        break;
+      case 62:
+        mappedNote = 61;
+        break;           
+      case 63:
+        mappedNote = 62;
+        break;           
+      case 64:
+        mappedNote = 63;
+        break;           
+      case 73:
+        mappedNote = 64;
+        break;           
+      case 74:
+        mappedNote = 65;
+        break;           
+      case 71:
+        mappedNote = 66;
+        break;           
+      case 39:
+        mappedNote = 67;
+        break;           
+//      default:
+//        mappedNote = 37;
+//        break;
       }
 
-      MIDI.sendNoteOn(mappedNote, velocity, sample_channel);
-      MIDI2.sendNoteOn(mappedNote, velocity, sample_channel);
+      MIDI.sendNoteOn(mappedNote, velocity, channel);
+      MIDI2.sendNoteOn(mappedNote, velocity, channel);
 
     #ifdef DEBUG  
       Serial.print("Note receive: ");
@@ -771,14 +843,14 @@ void handleNoteOn(byte channel, byte note, byte velocity)
       Serial.print(" Note send: ");
       Serial.print(mappedNote);
       Serial.print(" Channel: ");
-      Serial.print(sample_channel);
+      Serial.print(channel);
       Serial.println();  
    #endif
     }
 
     
   // if incoming is none of above, just pass through without octave, project.transpose etc
-  if ((channel!=bass_channel) && (channel!=lead_channel) && (channel!=project.l1_channel) && (channel!=project.l2_channel) && (channel!=project.b1_channel) && (channel!=project.b2_channel) &&(channel!=sample_channel))
+  if ((channel!=bass_channel) && (channel!=lead_channel) && (channel!=project.l1_channel) && (channel!=project.l2_channel) && (channel!=project.b1_channel) && (channel!=project.b2_channel) &&(channel!=sample_channel) &&(channel!=mpc_channel))
   {
 
     MIDI.sendNoteOn(note, velocity, channel);
@@ -1010,12 +1082,12 @@ void handleNoteOff(byte channel, byte note, byte velocity)
   */
 
   // if incoming is for sample, do mapping
-  if (channel==sample_channel)
+  if ((channel==sample_channel) || (channel==mpc_channel))
   {
     // do mapping ...
       byte mappedNote;
       
-      switch (note) {
+      switch (note) {       
        case 37:
        mappedNote = 36;
         break;
@@ -1046,13 +1118,80 @@ void handleNoteOff(byte channel, byte note, byte velocity)
       case 47:
         mappedNote = 45;
         break;           
-      default:
-        mappedNote = 37;
+      case 45:
+        mappedNote = 46;
+        break;           
+      case 43:
+        mappedNote = 47;
+        break;           
+      case 49:
+        mappedNote = 48;
+        break;           
+      case 55:
+        mappedNote = 49;
+        break;           
+      case 51:
+        mappedNote = 50;
+        break;           
+      case 53:
+        mappedNote = 51;
+        break;           
+
+      case 54:
+       mappedNote = 52;
         break;
+      case 69:
+        mappedNote = 53;
+        break;
+      case 81:
+        mappedNote = 54;
+        break;
+      case 80:
+        mappedNote = 55;
+        break;
+       case 65:
+        mappedNote = 56;
+        break;
+      case 66:
+        mappedNote = 57;
+        break;
+      case 76:
+        mappedNote = 58;
+        break;
+      case 77:
+        mappedNote = 59;
+        break;
+      case 56:
+        mappedNote = 60;
+        break;
+      case 62:
+        mappedNote = 61;
+        break;           
+      case 63:
+        mappedNote = 62;
+        break;           
+      case 64:
+        mappedNote = 63;
+        break;           
+      case 73:
+        mappedNote = 64;
+        break;           
+      case 74:
+        mappedNote = 65;
+        break;           
+      case 71:
+        mappedNote = 66;
+        break;           
+      case 39:
+        mappedNote = 67;
+        break;           
+//      default:
+//        mappedNote = 37;
+//        break;
       }
 
-      MIDI.sendNoteOff(mappedNote, velocity, sample_channel);
-      MIDI2.sendNoteOff(mappedNote, velocity, sample_channel);
+      MIDI.sendNoteOff(mappedNote, velocity, channel);
+      MIDI2.sendNoteOff(mappedNote, velocity, channel);
 
     #ifdef DEBUG  
       Serial.print("Note receive: ");
@@ -1060,14 +1199,14 @@ void handleNoteOff(byte channel, byte note, byte velocity)
       Serial.print(" Note send: ");
       Serial.print(mappedNote);
       Serial.print(" Channel: ");
-      Serial.print(sample_channel);
+      Serial.print(channel);
       Serial.println();  
    #endif
     }
 
     
   // if incoming is none of above, just pass through without octave, project.transpose etc
-  if ((channel!=bass_channel) && (channel!=lead_channel) && (channel!=project.l1_channel) && (channel!=project.l2_channel) && (channel!=project.b1_channel) && (channel!=project.b2_channel) &&(channel!=sample_channel))
+  if ((channel!=bass_channel) && (channel!=lead_channel) && (channel!=project.l1_channel) && (channel!=project.l2_channel) && (channel!=project.b1_channel) && (channel!=project.b2_channel) &&(channel!=sample_channel) &&(channel!=mpc_channel))
   {
 
     MIDI.sendNoteOff(note, velocity, channel);
@@ -2948,9 +3087,9 @@ void updateEnc() {
             project.scene_tempo[i] = project.scene_tempo[project.scene];
           }
           
-          lcd.setCursor(5,1);
+          lcd.setCursor(3,1);
           lcd.print("   ");
-          lcd.setCursor(5,1);
+          lcd.setCursor(3,1);
           lcd.print(project.scene_tempo[project.scene]);
           } 
         }
