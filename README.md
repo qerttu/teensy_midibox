@@ -7,8 +7,9 @@ This little project of mine was intended for the following use cases:
 - provide midi clock 
 - midi merge with two MIDI ports
 
+# hardware
+
 V1:
-Hardware
 - Teensy 4.1
 - LCD screen
 - 6 pots (+ one for LCD contrast)
