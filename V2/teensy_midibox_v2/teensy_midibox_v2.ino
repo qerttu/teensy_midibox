@@ -5,6 +5,7 @@ Next version to-do:
 
 2.0
 - new mapping of input fields based on new hardware
+- set octave with rotary encoder
 
 
 1.5
