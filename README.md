@@ -7,11 +7,19 @@ This little project of mine was intended for the following use cases:
 - provide midi clock 
 - midi merge with two MIDI ports
 
+V1:
 Hardware
-- runs on teensy 4.1
+- Teensy 4.1
 - LCD screen
 - 6 pots (+ one for LCD contrast)
 - 1 switch
+- 1 endless rotary encoder with a switch
+
+V2:
+- Teensy 4.1
+- LCD screen
+- 1 on-off-on switch
+- 2 buttons
 - 1 endless rotary encoder with a switch
 
 Schematics 
