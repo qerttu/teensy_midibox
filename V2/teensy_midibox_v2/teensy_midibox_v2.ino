@@ -74,6 +74,11 @@ const char version_number[] = "v1.5";
 #define R_TEMPO 1
 #define R_TRANSPOSE 2
 
+#define R_B1 1
+#define R_B2 2
+#define R_L1 3
+#define R_L2 4
+
 #define R_MAX = 2;
 
 #define MIDI_START 0xFA
@@ -2865,7 +2870,7 @@ void updateEncButton() {
         // ******************* TEMPO_TP **************
        if (menuMode==TEMPO_TP) {
 
-                  toggleRotEdit();
+                  toggleRotEdit(2);
 
           // clear edit marks
           lcd.setCursor(6,1);
@@ -2882,7 +2887,39 @@ void updateEncButton() {
               lcd.setCursor(11,1);
               lcd.print("*");
             }  
-        }      
+        }
+
+        //********** OCTAVE **************************
+        if (menuMode==OCTAVE) {
+                  toggleRotEdit(4);
+
+          // clear edit marks
+          lcd.setCursor(3,1);
+          lcd.print(" ");
+          lcd.setCursor(6,1);
+          lcd.print(" ");          
+          lcd.setCursor(9,1);
+          lcd.print(" ");
+          lcd.setCursor(12,1);
+          lcd.print(" ");
+                              
+          if (rotEditValue==R_B1) {
+              lcd.setCursor(3,1);
+              lcd.print("*");           
+            }
+          if (rotEditValue==R_B2) {
+              lcd.setCursor(6,1);
+              lcd.print("*");
+            }   
+          if (rotEditValue==R_L1) {
+              lcd.setCursor(9,1);
+              lcd.print("*");
+            }   
+          if (rotEditValue==R_L2) {
+              lcd.setCursor(12,1);
+              lcd.print("*");
+            }                        
+          }      
            
     }
 
@@ -2892,7 +2929,7 @@ void updateEncButton() {
        // **************** PROJECT **************
        if (menuMode==PROJECT) {
 
-          toggleRotEdit();
+          toggleRotEdit(2);
 
           // clear edit marks
           lcd.setCursor(0,1);
@@ -3048,6 +3085,7 @@ void updateEnc() {
     // ****************** MAIN MENU ********************
     if(menuState==MAIN) {
 
+    // ************** SCENE TEMPO **************
       if (rotEditValue!=0) {
         if(menuMode==TEMPO_TP) {
           if(rotEditValue==R_TEMPO) {
@@ -3058,6 +3096,42 @@ void updateEnc() {
             lcd.print(project.scene_tempo[project.scene]);         
            }          
           }
+
+
+    // ************** OCTAVE **************
+     if  (menuMode==OCTAVE) { 
+        if (rotEditValue==R_B1) {
+          project.b1_oct = project.b1_oct + v;
+          lcd.setCursor(4,1);
+          lcd.print("  ");
+          lcd.setCursor(4,1);
+          lcd.print(project.b1_oct);          
+          }
+
+        if (rotEditValue==R_B2) {
+          project.b2_oct = project.b2_oct + v;
+          lcd.setCursor(7,1);
+          lcd.print("  ");
+          lcd.setCursor(7,1);
+          lcd.print(project.b2_oct);          
+          }
+
+        if (rotEditValue==R_L1) {
+          project.l1_oct = project.l1_oct + v;
+          lcd.setCursor(10,1);
+          lcd.print("  ");
+          lcd.setCursor(10,1);
+          lcd.print(project.l1_oct);          
+          }                  
+
+        if (rotEditValue==R_L2) {
+          project.l2_oct = project.l2_oct + v;
+          lcd.setCursor(13,1);
+          lcd.print("  ");
+          lcd.setCursor(13,1);
+          lcd.print(project.l2_oct);          
+          }        
+        }           
       }
       else {   
         resetPotOks();
@@ -3082,6 +3156,8 @@ void updateEnc() {
         menuState=MAIN;
         lcdMainMenu(99);
         }
+
+       // **** TEMPO CHANGE *** 
        else if(rotEditValue==R_TEMPO) {
         
         if (((project.scene_tempo[project.scene]+v) >= minTempo) && ((project.scene_tempo[project.scene]+v)<=maxTempo)) {
@@ -3099,6 +3175,8 @@ void updateEnc() {
           lcd.print(project.scene_tempo[project.scene]);
           } 
         }
+
+        // ***** TRANSPOSE CHANGE ***
         else if (rotEditValue==R_TRANSPOSE) {
           if (((project.transpose+v) >= minTrans) && ((project.transpose+v)<=maxTrans)) {
             project.transpose = project.transpose + v;          
@@ -3261,8 +3339,19 @@ void toggleMidiStart() {
     }
 }
 
-void toggleRotEdit() {
+void toggleRotEdit(byte maxValue) {
 
+if (rotEditValue >=0 && rotEditValue <=maxValue) {
+  rotEditValue=rotEditValue+1;
+  }
+
+if (rotEditValue>maxValue) {
+  rotEditValue=0;
+  }
+
+  
+
+/*
 switch (rotEditValue) {
 
 case 0:
@@ -3276,9 +3365,10 @@ break;
 case R_TRANSPOSE:
   rotEditValue = 0;
 break;
-}
 
-// TO BE CONTINUED FROM HERE
+}
+*/
+
 
   #ifdef DEBUG2
     Serial.print("rotEditValue:");
