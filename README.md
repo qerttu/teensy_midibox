@@ -7,7 +7,7 @@ This little project of mine was intended for the following use cases:
 - provide midi clock 
 - midi merge with two MIDI ports
 
-# hardware
+## hardware
 
 V1:
 - Teensy 4.1
@@ -23,5 +23,5 @@ V2:
 - 2 buttons
 - 1 endless rotary encoder with a switch
 
-Schematics 
+## schematics 
 - Fritzing file to be added
