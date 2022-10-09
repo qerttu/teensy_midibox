@@ -1,7 +1,12 @@
 /*
 
 Next version to-do:
+- TBD
+
 *****
+
+2.01
+- Left and right buttons added
 
 2.0
 - new mapping of input fields based on new hardware
@@ -35,7 +40,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v1.5";
+const char version_number[] = "v2.01";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -256,6 +261,11 @@ Bounce swButton = Bounce(sw_pin, 10);
 // BASS SWITCH
 Bounce bsButton = Bounce(bs_pin, 10);
 
+// buttons
+const int button_black = 2;
+const int button_red = 3;
+Bounce buttonBlack = Bounce(button_black, 25);
+Bounce buttonRed = Bounce(button_red, 25);
 
 int print_count = 0;
 
@@ -305,8 +315,13 @@ String buf;
 void setup()
 {
 
+ //************ BUTTONS **********
+
     pinMode(sw_pin, INPUT_PULLUP);
     pinMode(bs_pin, INPUT_PULLUP);
+    pinMode(button_red, INPUT_PULLUP);
+    pinMode(button_black, INPUT_PULLUP);
+    
     Serial.begin(57600);
 
     // SD CARD setups
@@ -2821,6 +2836,26 @@ if (bsButton.update()) {
   menuMode=PROJECT;
   lcdSubMenu(99);  
   }
+
+     // if redbutton bushed
+   if (buttonRed.update()) {
+    if (buttonRed.risingEdge()) {
+
+      #ifdef DEBUG
+      Serial.println("Red pushed");
+      #endif
+        }
+    }
+
+    // if redbutton bushed
+   if (buttonBlack.update()) {
+    if (buttonBlack.fallingEdge()) {
+      #ifdef DEBUG
+      Serial.println("Black pushed");
+      #endif
+        }
+    }
+         
   
 }
 
