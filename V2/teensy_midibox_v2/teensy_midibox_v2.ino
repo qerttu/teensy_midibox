@@ -6,6 +6,7 @@ Next version to-do:
 *****
 
 2.01
+- Project list update display on lcd
 - Left and right buttons added
 
 2.0
@@ -52,7 +53,7 @@ const char version_number[] = "v2.01";
 
 #include <Encoder.h>
 
-#define DEBUG
+//#define DEBUG
 //#define DEBUG2
 
 #define PROJECT 0
@@ -3509,12 +3510,19 @@ void updateProjectList() {
 
   // open file
    dataFile = SD.open("/"); 
+
+  //lcd update project list
+    lcd.setCursor(0,0);
+    lcd.print("Upd projects..");      
+
   
   while(true) {
     File entry =  dataFile.openNextFile();
     if (! entry) {
       // no more files
-      break;
+    lcd.setCursor(0,0);
+    lcd.print("Done.");  
+    break;
     }
 
     String file_name = entry.name();
@@ -3555,8 +3563,14 @@ void updateProjectList() {
         Serial.println(projectList[filelist_count].name);
         Serial.print("Project id: ");
         Serial.println(projectList[filelist_count].id);
-      #endif       
-      
+      #endif 
+
+      // print projects to lcd
+          lcd.setCursor(0,1);
+          lcd.print("                ");
+          lcd.setCursor(0,1);
+          lcd.print(projectList[filelist_count].name);     
+
       
       tempname = "";
       filelist_count++;     
