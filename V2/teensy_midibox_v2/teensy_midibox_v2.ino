@@ -5,6 +5,10 @@ Next version to-do:
 
 *****
 
+2.02
+- max transpose increased to +/- 8
+- midi handler for Program Change messages
+
 2.01
 - Project list update display on lcd
 - Left and right buttons added
@@ -41,7 +45,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.01";
+const char version_number[] = "v2.02";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -159,8 +163,8 @@ const int maxTempo = 254;
 const int minTempo = 50;
 
 //max min transpose
-const int maxTrans = 4;
-const int minTrans = -4;
+const int maxTrans = 8;
+const int minTrans = -8;
 
 //midi button CC stuff
 bool bassPressed = false;
@@ -373,6 +377,11 @@ void setup()
     MIDI2.setHandleControlChange(handleCC);
     midi1.setHandleControlChange(handleCC);
 
+    //handle midi pc
+    MIDI.setHandleProgramChange(handlePC);
+    MIDI2.setHandleProgramChange(handlePC);
+    midi1.setHandleProgramChange(handlePC);
+    
     // handle midi cloc
     MIDI.setHandleClock(myClock);
     MIDI2.setHandleClock(myClock);
@@ -1261,6 +1270,11 @@ void handleNoteOff(byte channel, byte note, byte velocity)
   #endif
      
 }
+
+void handlePC(byte channel, byte program) {
+  MIDI.sendProgramChange(program,channel);
+  MIDI2.sendProgramChange(program,channel);
+  }
 
 void handleCC(byte channel, byte control, byte value) {
 
@@ -3552,7 +3566,7 @@ void updateProjectList() {
                 }
            
               buf="";
-              delay(50);
+              delay(10);
             }
        
           
