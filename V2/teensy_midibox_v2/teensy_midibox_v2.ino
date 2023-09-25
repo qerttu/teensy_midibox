@@ -1,9 +1,10 @@
 /*
 
 Next version to-do:
-- TBD
-
 *****
+
+2.03
+- support for 8 scenes
 
 2.02
 - max transpose increased to +/- 8
@@ -45,7 +46,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.02";
+const char version_number[] = "v2.03";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -59,6 +60,7 @@ const char version_number[] = "v2.02";
 
 //#define DEBUG
 //#define DEBUG2
+//#define DEBUG_PC
 
 #define PROJECT 0
 #define OCTAVE 1
@@ -70,7 +72,7 @@ const char version_number[] = "v2.02";
 #define CLEAN 7
 #define BACK 8
 #define numberOfModes 8
-#define NUMBER_SCENES 6
+#define NUMBER_SCENES 8
 
 #define MAIN 0
 #define SUB 1
@@ -200,7 +202,7 @@ typedef struct{
 
 
 // initalise project 
-Project project = {0,0,150,150,{150,150,150,150,150,150},0,"EMPTY MRG",255,0,0,0,0,meeb,brute,keys,de}; 
+Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de}; 
 
 // project.tempo count
 int tempoCount;
@@ -294,8 +296,8 @@ int lastUpButtonState = 1;     // previous state of the up button
 int write_count = 0;
 
 // BEFORE OFFSET -- track sysex: 32 tracks, 112 (32 steps) each + global settings + 6 mute scenes --> 39 tracks in total
-// track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 6 mute scenes --> 39 tracks in total
-uint8_t sysex_data[NUMBER_OF_TRACKS+7][144];
+// track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 8 mute scenes --> 41 tracks in total
+uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES][144];
 
 // project files sysex
 uint8_t sysex_files[10];
@@ -355,6 +357,8 @@ void setup()
      lcd.print("Teensy_midibox");
      lcd.setCursor(0,1);
      lcd.print(version_number);
+     
+     delay(1500);
      
     // load default dirlist
       updateProjectList();
@@ -1274,6 +1278,16 @@ void handleNoteOff(byte channel, byte note, byte velocity)
 void handlePC(byte channel, byte program) {
   MIDI.sendProgramChange(program,channel);
   MIDI2.sendProgramChange(program,channel);
+
+  #ifdef DEBUG_PC
+    Serial.print("*Incoming MIDI PC* ");
+    Serial.print(" Channel:");
+    Serial.print(channel);
+    Serial.print(" Program change:");
+    Serial.println(program); 
+  #endif
+
+  
   }
 
 void handleCC(byte channel, byte control, byte value) {
@@ -2196,13 +2210,13 @@ void cleanArray(byte track) {
 
 void cleanData() {
   
-  for (byte i = 0; i < (NUMBER_OF_TRACKS+7); i++) {
+  for (byte i = 0; i < (NUMBER_OF_TRACKS+1+NUMBER_SCENES); i++) {
       memset(sysex_data[i], 0, sizeof(sysex_data[i]));
      } 
   }
 
 void cleanProjectData() {
-  project.name="EMPTY MRG";
+  project.name="EMPTY PRG";
   project.tempo=150;
   project.id=255;
   project.scene=0;
@@ -3635,7 +3649,7 @@ void sortProjectList() {
 
 Project getProjectById(byte id) {
 
-Project emptyProject = {0,0,150,150,{150,150,150,150,150,150},0,"EMPTY MRG",255,0,0,0,0,meeb,brute,keys,de}; 
+Project emptyProject = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de}; 
 
     for(int i=0; i<(filelist_count); i++) {
       if (projectList[i].id == id) {
