@@ -3,6 +3,9 @@
 Next version to-do:
 *****
 
+2.04
+- added scene PC messages saving / receiving
+
 2.03
 - support for 8 scenes
 
@@ -46,7 +49,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.03";
+const char version_number[] = "v2.04";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -61,6 +64,7 @@ const char version_number[] = "v2.03";
 //#define DEBUG
 //#define DEBUG2
 //#define DEBUG_PC
+//#define DEBUG_SYSEX     
 
 #define PROJECT 0
 #define OCTAVE 1
@@ -296,8 +300,8 @@ int lastUpButtonState = 1;     // previous state of the up button
 int write_count = 0;
 
 // BEFORE OFFSET -- track sysex: 32 tracks, 112 (32 steps) each + global settings + 6 mute scenes --> 39 tracks in total
-// track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 8 mute scenes --> 41 tracks in total
-uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES][144];
+// track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 8 mute scenes + 8 pc per scene --> 49 tracks in total
+uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES][144];
 
 // project files sysex
 uint8_t sysex_files[10];
@@ -1598,7 +1602,7 @@ void writeProjectSdCard(byte cp) {
   }
 
 void mySystemExclusive(byte *data, unsigned int length) {
-  #ifdef DEBUG 
+  #ifdef DEBUG_SYSEX 
     Serial.print("Receiving sysex:");
     Serial.print(" (length: ");
     Serial.print(length);
@@ -1874,7 +1878,7 @@ String printBytesSting(const byte *data, unsigned int size) {
 
 void printBytes(const byte *data, unsigned int size) {
 
-#ifdef DEBUG           
+#ifdef DEBUG_SYSEX           
   while (size > 0) {
     byte b = *data++;
    // if (b < 16) Serial.print('0');
@@ -1885,6 +1889,7 @@ void printBytes(const byte *data, unsigned int size) {
     }
     size = size - 1;
   }
+  Serial.println();
 #endif
   
 }
@@ -2187,6 +2192,11 @@ void storeSysex(const byte *data, unsigned int size) {
     // in case mute track settings
     if (tr == 126) {
       tr = NUMBER_OF_TRACKS + 1 + data[5];
+      }
+
+    // in case mute track settings
+    if (tr == 123) {
+      tr = NUMBER_OF_TRACKS + 1 + NUMBER_SCENES + data[5];
       }
 
     #ifdef DEBUG     
