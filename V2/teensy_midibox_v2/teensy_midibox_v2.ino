@@ -3,6 +3,9 @@
 Next version to-do:
 *****
 
+2.04.1
+- fixed PC scene messages cleanup function
+
 2.04
 - added scene PC messages saving / receiving
 
@@ -49,7 +52,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.04";
+const char version_number[] = "v2.04.1";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -2220,7 +2223,7 @@ void cleanArray(byte track) {
 
 void cleanData() {
   
-  for (byte i = 0; i < (NUMBER_OF_TRACKS+1+NUMBER_SCENES); i++) {
+  for (byte i = 0; i < (NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES); i++) {
       memset(sysex_data[i], 0, sizeof(sysex_data[i]));
      } 
   }
