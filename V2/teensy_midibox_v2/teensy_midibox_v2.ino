@@ -2,6 +2,9 @@
 
 Next version to-do:
 *****
+2.04.3
+- support for two sets of PC messages (track count increased by SCENE_COUNT)
+- sending PCs for channel 1 to MIDI2, other channels to MIDI1
 
 2.04.1
 - fixed PC scene messages cleanup function
@@ -52,7 +55,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.04.1";
+const char version_number[] = "v2.04.3";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -67,7 +70,8 @@ const char version_number[] = "v2.04.1";
 //#define DEBUG
 //#define DEBUG2
 //#define DEBUG_PC
-//#define DEBUG_SYSEX     
+//#define DEBUG_SYSEX
+//#define DEBUG_SYSEX2      
 
 #define PROJECT 0
 #define OCTAVE 1
@@ -303,8 +307,8 @@ int lastUpButtonState = 1;     // previous state of the up button
 int write_count = 0;
 
 // BEFORE OFFSET -- track sysex: 32 tracks, 112 (32 steps) each + global settings + 6 mute scenes --> 39 tracks in total
-// track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 8 mute scenes + 8 pc per scene --> 49 tracks in total
-uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES][144];
+// track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 8 mute scenes + 2x8 pc per scene --> 49 tracks in total
+uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES][144];
 
 // project files sysex
 uint8_t sysex_files[10];
@@ -1283,9 +1287,7 @@ void handleNoteOff(byte channel, byte note, byte velocity)
 }
 
 void handlePC(byte channel, byte program) {
-  MIDI.sendProgramChange(program,channel);
-  MIDI2.sendProgramChange(program,channel);
-
+  
   #ifdef DEBUG_PC
     Serial.print("*Incoming MIDI PC* ");
     Serial.print(" Channel:");
@@ -1293,6 +1295,22 @@ void handlePC(byte channel, byte program) {
     Serial.print(" Program change:");
     Serial.println(program); 
   #endif
+
+  //if on channel 1, send only to MIDI2 port (sequencer), otherwise send to MIDI1 port
+  if (channel==1) 
+  {
+    #ifdef DEBUG_PC
+      Serial.println("Sending to MIDIPORT 2"); 
+    #endif
+    MIDI2.sendProgramChange(program,channel);
+  }
+  else 
+  {
+    #ifdef DEBUG_PC
+      Serial.println("Sending to MIDIPORT 1"); 
+    #endif
+  MIDI.sendProgramChange(program,channel);
+  }
 
   
   }
@@ -1502,14 +1520,14 @@ void writeTracksDataSdCard(byte cp) {
     #endif
       while(1);
     }
-   #ifdef DEBUG      
+   #ifdef DEBUG_SYSEX2        
       Serial.print("Starting to write TRACKS to SD card on file: ");
       Serial.println(filename);
    #endif 
     if(dataFile) {
         byte tracksCount = sizeof (sysex_data) / sizeof (sysex_data[0]);
  
-      #ifdef DEBUG          
+      #ifdef DEBUG_SYSEX2          
         Serial.print("Tracks:");
         Serial.print(tracksCount);
       #endif
@@ -1517,7 +1535,7 @@ void writeTracksDataSdCard(byte cp) {
         for (byte i = 0; i < tracksCount; i++) {
          if (sysex_data[i][0] > 0) {     
             buf = printBytesSting(sysex_data[i],sizeof(sysex_data[i]));
-          #ifdef DEBUG
+          #ifdef DEBUG_SYSEX2  
             Serial.print("Writing line ");
             Serial.print(i);
             Serial.print(" : ");
@@ -2201,17 +2219,26 @@ void storeSysex(const byte *data, unsigned int size) {
     if (tr == 123) {
       tr = NUMBER_OF_TRACKS + 1 + NUMBER_SCENES + data[5];
       }
-
-    #ifdef DEBUG     
-      Serial.print("Saving sysex, track: ");
-      Serial.println(tr);
-    #endif
           
+    #ifdef DEBUG_SYSEX2      
+         Serial.print("Saving sysex, track: ");
+        Serial.println(tr);
+    #endif
+
     // prepare sysex
      for (byte i = 0; i < size; i++) {
       byte b = *data++;    
       sysex_data[tr][i]=b;
-     }         
+       #ifdef DEBUG_SYSEX2      
+          Serial.print(b);
+          Serial.print(" ");
+       #endif
+     }
+
+      #ifdef DEBUG_SYSEX2      
+          Serial.println();
+       #endif
+
    }
  }
 
@@ -2223,7 +2250,7 @@ void cleanArray(byte track) {
 
 void cleanData() {
   
-  for (byte i = 0; i < (NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES); i++) {
+  for (byte i = 0; i < (NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES); i++) {
       memset(sysex_data[i], 0, sizeof(sysex_data[i]));
      } 
   }
