@@ -2,6 +2,9 @@
 
 Next version to-do:
 *****
+2.04.4
+- display instrument midi channels under "MIDI"
+
 2.04.3
 - support for two sets of PC messages (track count increased by SCENE_COUNT)
 - sending PCs for channel 1 to MIDI2, other channels to MIDI1
@@ -55,7 +58,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.04.3";
+const char version_number[] = "v2.04.4";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -127,10 +130,20 @@ const int sw_pin = 4;
 const int bs_pin = 10;
 
 //lcd
-const int rs = 37, en = 36, d4 = 41, d5 = 40, d6 = 39, d7 = 38;
+//this is for the PROD
+//const int rs = 37, en = 36, d4 = 41, d5 = 40, d6 = 39, d7 = 38;
+
+// this is for the PROTO
+const int rs = 31, en = 32, d4 = 27, d5 = 28, d6 = 29, d7 = 30;
+
 
 //rotary enc
-const int dt = 5, clk = 6;
+// this is for PROD
+//const int dt = 5, clk = 6;
+
+// this is for PROTO
+const int dt = 2, clk = 3;
+
 
 // pots initials
 ResponsiveAnalogRead pot1(A9, true);
@@ -2303,7 +2316,7 @@ void lcdMainMenu(byte currentMode) {
 
       
       // labels and inital values
-      lcd.print("Oc> ME BR LL LH");
+      lcd.print("Oc> B1 B2 L1 L2");
       lcd.setCursor(4,1);
       lcd.print(project.b1_oct);
       lcd.setCursor(7,1);
@@ -2395,7 +2408,15 @@ void lcdMainMenu(byte currentMode) {
     break;
   
   case MIDICC:
-    lcd.print("Midi >");
+    lcd.print("Ch> B1 B2 L1 L2");
+    lcd.setCursor(4,1);
+    lcd.print(project.b1_channel);
+    lcd.setCursor(7,1);
+    lcd.print(project.b2_channel);    
+    lcd.setCursor(10,1);
+    lcd.print(project.l1_channel);           
+    lcd.setCursor(13,1);
+    lcd.print(project.l2_channel);
     break;
   
   case SAVE:
