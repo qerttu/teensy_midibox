@@ -2,6 +2,10 @@
 
 Next version to-do:
 *****
+
+2.05.2
+- Added new midi handlers and playmodes for Nord 2x
+
 2.04.4
 - display instrument midi channels under "MIDI"
 
@@ -58,7 +62,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.04.4";
+const char version_number[] = "v2.05.2";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -99,7 +103,8 @@ const char version_number[] = "v2.04.4";
 
 // rotary edit contstants
 #define R_TEMPO 1
-#define R_TRANSPOSE 2
+#define R_MODE 2
+#define R_TRANSPOSE 3
 
 #define R_B1 1
 #define R_B2 2
@@ -114,6 +119,10 @@ const char version_number[] = "v2.04.4";
 
 #define MIDI_CC_BASS 110
 #define MIDI_CC_LEAD 111
+
+#define MODE_NORD 0
+#define MODE_EXT 1
+#define MODE_BOTH 2
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, MIDI2);
@@ -183,6 +192,10 @@ const int meeb = 5;
 const int brute = 2;
 const int keys = 6;
 const int de = 7;
+const int nord_b1 = 3;
+const int nord_b2 = 4;
+const int nord_l1 = 8;
+const int nord_l2 = 9;
 
 //max min values
 const int maxTempo = 254;
@@ -219,6 +232,10 @@ typedef struct{
   int b2_channel;
   int l1_channel;
   int l2_channel;
+  int nord_b1_channel;
+  int nord_b2_channel;
+  int nord_l1_channel;
+  int nord_l2_channel;
 }Project; 
 
 
@@ -226,7 +243,7 @@ typedef struct{
 
 
 // initalise project 
-Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de}; 
+Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de,nord_b1,nord_b2,nord_l1,nord_l2}; 
 
 // project.tempo count
 int tempoCount;
@@ -239,9 +256,14 @@ int cursorLocation = 0;
 boolean editChar = false;
 int charLocation = 0;
 
-//inital playmode
-int bassMode=0;
-int leadMode=0;
+//bassmodes
+// 0 = Nord only
+// 1 = External synths only
+// 2 = Both
+int bassMode=MODE_BOTH;
+
+//mode labels (4 character of length)
+String bassmode_labels[3] = {"Nord","Ext ","All "};
 
 // keyboard offset
 int keyOffset=-12;
@@ -390,18 +412,18 @@ void setup()
     // MIDI HANDLERS
     midi1.setHandleSystemExclusive(mySystemExclusive); 
     
-    MIDI.setHandleNoteOn(handleNoteOn);  // Put only the name of the function
-    MIDI2.setHandleNoteOn(handleNoteOn);
-    midi1.setHandleNoteOn(handleNoteOn);
+    MIDI.setHandleNoteOn(handleNoteOnNord);  // Put only the name of the function
+    MIDI2.setHandleNoteOn(handleNoteOnNord);
+    midi1.setHandleNoteOn(handleNoteOnNord);
     
 
     // Do the same for NoteOffs
-    MIDI.setHandleNoteOff(handleNoteOff);
-    MIDI2.setHandleNoteOff(handleNoteOff);
-    midi1.setHandleNoteOff(handleNoteOff);
+    MIDI.setHandleNoteOff(handleNoteOffNord);
+    MIDI2.setHandleNoteOff(handleNoteOffNord);
+    midi1.setHandleNoteOff(handleNoteOffNord);
 
     // handle midi cc
-    MIDI.setHandleControlChange(handleCC);
+    MIDI.setHandleControlChange(handleCCNord);
     MIDI2.setHandleControlChange(handleCC);
     midi1.setHandleControlChange(handleCC);
 
@@ -588,6 +610,369 @@ void myClock() {
 
   
 }
+
+void handleNoteOnNord(byte channel, byte note, byte velocity)
+{
+  //set led
+  analogWrite(ledPin, ledLow);
+  byte temp_note;
+
+    // if received on NORD split channels, send it back to NORD and EXT synths
+    if (channel==project.nord_b1_channel || channel==project.nord_b2_channel) {
+   
+      if (bassMode==MODE_NORD || bassMode==MODE_BOTH) {
+        MIDI.sendNoteOn(note + project.transpose, velocity, project.nord_b1_channel);
+        MIDI.sendNoteOn(note + project.transpose, velocity, project.nord_b2_channel);
+      }
+      
+      if (bassMode==MODE_EXT || bassMode==MODE_BOTH) { 
+        //OTHER BASSES TO MIDI2 (EXT)
+        MIDI2.sendNoteOn(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);  
+        MIDI2.sendNoteOn(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);  
+      }
+    }
+
+    // same for lead channel
+    else if (channel==project.nord_l1_channel || channel==project.nord_l2_channel) {
+
+      if (bassMode==MODE_NORD || bassMode==MODE_BOTH) {
+        MIDI.sendNoteOn(note + project.transpose, velocity, project.nord_l1_channel);
+        MIDI.sendNoteOn(note + project.transpose, velocity, project.nord_l2_channel);
+      }
+
+      if (bassMode==MODE_EXT || bassMode==MODE_BOTH) { 
+        //OTHER LEADS TO MIDI2 (EXT)
+        MIDI2.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);  
+        MIDI2.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
+      }
+    }
+    // if recived on EXT synth channels, add project transpose + octave and send to MIDI2
+    else if (channel==project.b1_channel || channel==project.b2_channel || channel==project.l1_channel || channel==project.l2_channel) {
+          if (channel==project.b1_channel) {
+            temp_note = note + project.b1_oct*12;
+          }
+          if (channel==project.b2_channel) {
+            temp_note = note + project.b2_oct*12;
+          }
+          if (channel==project.l1_channel) {
+            temp_note = note + project.l1_oct*12;
+          }
+          if (channel==project.l2_channel) {
+            temp_note = note + project.l2_oct*12;
+          }
+          // send only to MIDI2 (EXT)
+          MIDI2.sendNoteOn(temp_note + project.transpose, velocity, channel);  
+      }
+    // if SAMPLE channel
+    else if ((channel==sample_channel) || (channel==mpc_channel))
+    {
+    // do mapping ...
+      byte mappedNote;
+      
+      switch (note) {       
+       case 37:
+       mappedNote = 36;
+        break;
+      case 36:
+        mappedNote = 37;
+        break;
+      case 42:
+        mappedNote = 38;
+        break;
+      case 82:
+        mappedNote = 39;
+        break;
+       case 40:
+        mappedNote = 40;
+        break;
+      case 38:
+        mappedNote = 41;
+        break;
+      case 46:
+        mappedNote = 42;
+        break;
+      case 44:
+        mappedNote = 43;
+        break;
+      case 48:
+        mappedNote = 44;
+        break;
+      case 47:
+        mappedNote = 45;
+        break;           
+      case 45:
+        mappedNote = 46;
+        break;           
+      case 43:
+        mappedNote = 47;
+        break;           
+      case 49:
+        mappedNote = 48;
+        break;           
+      case 55:
+        mappedNote = 49;
+        break;           
+      case 51:
+        mappedNote = 50;
+        break;           
+      case 53:
+        mappedNote = 51;
+        break;           
+
+       case 54:
+       mappedNote = 52;
+        break;
+      case 69:
+        mappedNote = 53;
+        break;
+      case 81:
+        mappedNote = 54;
+        break;
+      case 80:
+        mappedNote = 55;
+        break;
+       case 65:
+        mappedNote = 56;
+        break;
+      case 66:
+        mappedNote = 57;
+        break;
+      case 76:
+        mappedNote = 58;
+        break;
+      case 77:
+        mappedNote = 59;
+        break;
+      case 56:
+        mappedNote = 60;
+        break;
+      case 62:
+        mappedNote = 61;
+        break;           
+      case 63:
+        mappedNote = 62;
+        break;           
+      case 64:
+        mappedNote = 63;
+        break;           
+      case 73:
+        mappedNote = 64;
+        break;           
+      case 74:
+        mappedNote = 65;
+        break;           
+      case 71:
+        mappedNote = 66;
+        break;           
+      case 39:
+        mappedNote = 67;
+        break;           
+//      default:
+//        mappedNote = 37;
+//        break;
+      }
+
+      // SEND ONLY TO MIDI2
+      MIDI2.sendNoteOn(mappedNote, velocity, channel);
+    } 
+    else {
+         MIDI2.sendNoteOn(note, velocity, channel);
+      }
+    notesPlaying=notesPlaying+1; 
+  }
+
+  void handleNoteOffNord(byte channel, byte note, byte velocity)
+{
+  //set led
+  analogWrite(ledPin, ledLow);
+  byte temp_note;
+
+    // if received on any of the split channels, send it back to both, added with transpose
+    if (channel==project.nord_b1_channel || channel==project.nord_b2_channel) {
+      
+      if (bassMode==MODE_NORD || bassMode==MODE_BOTH) {
+        MIDI.sendNoteOff(note + project.transpose, velocity, project.nord_b1_channel);
+        MIDI.sendNoteOff(note + project.transpose, velocity, project.nord_b2_channel);
+        }
+        
+      if (bassMode==MODE_EXT || bassMode==MODE_BOTH) {  
+        //OTHER BASSES TO MIDI2 
+        MIDI2.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);  
+        MIDI2.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);  
+       }
+    }
+
+    // LEAD
+    else if (channel==project.nord_l1_channel || channel==project.nord_l2_channel) {
+
+      if (bassMode==MODE_NORD || bassMode==MODE_BOTH) {
+        MIDI.sendNoteOff(note + project.transpose, velocity, project.nord_l1_channel);
+       MIDI.sendNoteOff(note + project.transpose, velocity, project.nord_l2_channel);
+      }
+      
+      // if "BASS", then send also to EXT synths
+      if (bassMode==MODE_EXT || bassMode==MODE_BOTH) {
+        //OTHER LEADS TO MIDI2 
+        MIDI2.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);  
+        MIDI2.sendNoteOff(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
+      }
+   }
+    // if recived on EXT synth channels, add project transpose + octave and send to MIDI2
+    else if (channel==project.b1_channel || channel==project.b2_channel || channel==project.l1_channel || channel==project.l2_channel) {
+          if (channel==project.b1_channel) {
+            temp_note = note + project.b1_oct*12;
+          }
+          if (channel==project.b2_channel) {
+            temp_note = note + project.b2_oct*12;
+          }
+          if (channel==project.l1_channel) {
+            temp_note = note + project.l1_oct*12;
+          }
+          if (channel==project.l2_channel) {
+            temp_note = note + project.l2_oct*12;
+          }
+          // send only to MIDI2 (EXT)
+          MIDI2.sendNoteOff(temp_note + project.transpose, velocity, channel);  
+      }
+    else if ((channel==sample_channel) || (channel==mpc_channel))
+    {
+    // do mapping ...
+      byte mappedNote;
+      
+      switch (note) {       
+       case 37:
+       mappedNote = 36;
+        break;
+      case 36:
+        mappedNote = 37;
+        break;
+      case 42:
+        mappedNote = 38;
+        break;
+      case 82:
+        mappedNote = 39;
+        break;
+       case 40:
+        mappedNote = 40;
+        break;
+      case 38:
+        mappedNote = 41;
+        break;
+      case 46:
+        mappedNote = 42;
+        break;
+      case 44:
+        mappedNote = 43;
+        break;
+      case 48:
+        mappedNote = 44;
+        break;
+      case 47:
+        mappedNote = 45;
+        break;           
+      case 45:
+        mappedNote = 46;
+        break;           
+      case 43:
+        mappedNote = 47;
+        break;           
+      case 49:
+        mappedNote = 48;
+        break;           
+      case 55:
+        mappedNote = 49;
+        break;           
+      case 51:
+        mappedNote = 50;
+        break;           
+      case 53:
+        mappedNote = 51;
+        break;           
+
+       case 54:
+       mappedNote = 52;
+        break;
+      case 69:
+        mappedNote = 53;
+        break;
+      case 81:
+        mappedNote = 54;
+        break;
+      case 80:
+        mappedNote = 55;
+        break;
+       case 65:
+        mappedNote = 56;
+        break;
+      case 66:
+        mappedNote = 57;
+        break;
+      case 76:
+        mappedNote = 58;
+        break;
+      case 77:
+        mappedNote = 59;
+        break;
+      case 56:
+        mappedNote = 60;
+        break;
+      case 62:
+        mappedNote = 61;
+        break;           
+      case 63:
+        mappedNote = 62;
+        break;           
+      case 64:
+        mappedNote = 63;
+        break;           
+      case 73:
+        mappedNote = 64;
+        break;           
+      case 74:
+        mappedNote = 65;
+        break;           
+      case 71:
+        mappedNote = 66;
+        break;           
+      case 39:
+        mappedNote = 67;
+        break;           
+//      default:
+//        mappedNote = 37;
+//        break;
+      }
+
+      // SEND ONLY TO MIDI2
+      MIDI2.sendNoteOff(mappedNote, velocity, channel);
+    } 
+    else {
+         MIDI2.sendNoteOff(note, velocity, channel);
+      }
+    notesPlaying=notesPlaying-1; 
+}
+
+void handleCCNord(byte channel, byte control, byte value) {
+
+  #ifdef DEBUG2
+    Serial.println("Incoming MIDI CC:");
+    Serial.print("Channel:");
+    Serial.print(channel);
+    Serial.print("Control:");
+    Serial.print(control);
+    Serial.print("Value:");
+    Serial.print(value);
+    
+  #endif
+
+  // pass through CC values in NORD
+  if (channel==project.nord_b1_channel || channel==project.nord_b2_channel || channel==project.nord_l1_channel || channel==project.nord_l2_channel) {
+    MIDI.sendControlChange(control,value,channel);
+    }
+  }
+
+
+
+// ********** MIDI HANDLERS FOR GENERAL MIDI KEYBOARD ****************
 
 void handleNoteOn(byte channel, byte note, byte velocity)
 {
@@ -934,8 +1319,6 @@ void handleNoteOn(byte channel, byte note, byte velocity)
    //print modes and octaves and notes laying
    Serial.print("Bass mode: ");
    Serial.print(bassMode);
-   Serial.print(" Lead mode: ");
-   Serial.print(leadMode);
    Serial.print(" Notesplaying : ");
    Serial.print(notesPlaying);
    Serial.println();
@@ -1290,8 +1673,6 @@ void handleNoteOff(byte channel, byte note, byte velocity)
    //print modes and octaves and notes laying
    Serial.print("Bass mode: ");
    Serial.print(bassMode);
-   Serial.print(" Lead mode: ");
-   Serial.print(leadMode);
    Serial.print(" Notesplaying : ");
    Serial.print(notesPlaying);
    Serial.println();
@@ -1361,7 +1742,7 @@ void handleCC(byte channel, byte control, byte value) {
         case MIDI_CC_BASS:
           if (value==0){
             bassPressed=false; 
-            bassMode=1;
+            bassMode=MODE_EXT;
             lcdSubMenu(PROJECT);
           }
         break;
@@ -1369,7 +1750,7 @@ void handleCC(byte channel, byte control, byte value) {
         case MIDI_CC_LEAD:
           if (value==0){
             leadPressed=false; 
-            bassMode=0;
+            bassMode=MODE_NORD;
             lcdSubMenu(PROJECT);
           }
         
@@ -1393,7 +1774,7 @@ void handleCC(byte channel, byte control, byte value) {
 
       if (!bassPressed && !leadPressed) {
         bothPressed=false;
-        bassMode=2;
+        bassMode=MODE_BOTH;
         lcdSubMenu(PROJECT);
         }
     
@@ -2481,16 +2862,16 @@ void lcdSubMenu(byte currentMode) {
       // bass play mode
       lcd.setCursor(7,1);
       switch (bassMode) {
-        case 0:
-          lcd.print("Lead");
+        case MODE_NORD:
+          lcd.print(bassmode_labels[MODE_NORD]);
         break;
 
-        case 1:
-          lcd.print("Bass");
+        case MODE_EXT:
+          lcd.print(bassmode_labels[MODE_EXT]);
         break;
 
-        case 2:
-          lcd.print("L1+B");
+        case MODE_BOTH:
+          lcd.print(bassmode_labels[MODE_BOTH]);
         break;        
         }
      
@@ -3007,9 +3388,9 @@ void updateEncButton() {
           if (rotEditValue==R_TEMPO) {
               lcd.setCursor(6,1);
               lcd.print("*");           
-            }
-          
-          if (rotEditValue==R_TRANSPOSE) {
+            }          
+         
+          if (rotEditValue==R_TRANSPOSE || rotEditValue==R_MODE) {
               lcd.setCursor(11,1);
               lcd.print("*");
             }  
@@ -3055,16 +3436,23 @@ void updateEncButton() {
        // **************** PROJECT **************
        if (menuMode==PROJECT) {
 
-          toggleRotEdit(2);
+          toggleRotEdit(3);
 
           // clear edit marks
           lcd.setCursor(0,1);
+          lcd.print(" ");
+          lcd.setCursor(6,1);
           lcd.print(" ");
           lcd.setCursor(11,1);
           lcd.print(" ");
 
           if (rotEditValue==R_TEMPO) {
               lcd.setCursor(0,1);
+              lcd.print("*");           
+            }
+
+          if (rotEditValue==R_MODE) {
+              lcd.setCursor(6,1);
               lcd.print("*");           
             }
           
@@ -3301,6 +3689,29 @@ void updateEnc() {
           lcd.print(project.scene_tempo[project.scene]);
           } 
         }
+
+        
+        // ******** MODE CHANGE ********
+        else if (rotEditValue==R_MODE) {
+          // TODO MODE
+        
+          byte temp_mode = bassMode+v;
+          if (temp_mode<=MODE_NORD) {
+              bassMode = MODE_NORD;
+              lcd.setCursor(7,1);
+              lcd.print(bassmode_labels[MODE_NORD]);
+            }
+          else if(temp_mode==MODE_EXT) {
+              bassMode= MODE_EXT;
+              lcd.setCursor(7,1);
+              lcd.print(bassmode_labels[MODE_EXT]);           
+            }
+           else  {
+              bassMode=MODE_BOTH;
+              lcd.setCursor(7,1);
+              lcd.print(bassmode_labels[MODE_BOTH]);           
+            }      
+          }
 
         // ***** TRANSPOSE CHANGE ***
         else if (rotEditValue==R_TRANSPOSE) {
