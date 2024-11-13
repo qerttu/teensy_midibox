@@ -3,6 +3,9 @@
 Next version to-do:
 *****
 
+2.05.3
+- Added handlers for MIDI port3
+
 2.05.2
 - Added new midi handlers and playmodes for Nord 2x
 
@@ -62,7 +65,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.05.2";
+const char version_number[] = "v2.05.3";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -76,7 +79,7 @@ const char version_number[] = "v2.05.2";
 
 //#define DEBUG
 //#define DEBUG2
-//#define DEBUG_PC
+#define DEBUG_PC
 //#define DEBUG_SYSEX
 //#define DEBUG_SYSEX2      
 
@@ -124,8 +127,11 @@ const char version_number[] = "v2.05.2";
 #define MODE_EXT 1
 #define MODE_BOTH 2
 
+#define MAX_BUFFER 64
+
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, MIDI2);
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial3, MIDI3);
 
 /******************** MIDI *****************************/
 
@@ -196,6 +202,8 @@ const int nord_b1 = 3;
 const int nord_b2 = 4;
 const int nord_l1 = 8;
 const int nord_l2 = 9;
+const int nord_global = 16;
+const int mpc_global = 1;
 
 //max min values
 const int maxTempo = 254;
@@ -209,6 +217,13 @@ const int minTrans = -8;
 bool bassPressed = false;
 bool leadPressed = false;
 bool bothPressed = false;
+
+
+typedef struct{
+  byte channel;
+  byte note;
+  byte velocity;
+  }Note;
 
 typedef struct{
   int transpose;
@@ -236,6 +251,8 @@ typedef struct{
   int nord_b2_channel;
   int nord_l1_channel;
   int nord_l2_channel;
+  int nord_global_channel;
+  int mpc_global_channel;
 }Project; 
 
 
@@ -243,7 +260,11 @@ typedef struct{
 
 
 // initalise project 
-Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de,nord_b1,nord_b2,nord_l1,nord_l2}; 
+Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de,nord_b1,nord_b2,nord_l1,nord_l2,nord_global,mpc_global}; 
+
+//notebuffer
+//TODO NOTEBUFFER FUNCTION
+Note noteBuffer[MAX_BUFFER];
 
 // project.tempo count
 int tempoCount;
@@ -269,7 +290,7 @@ String bassmode_labels[3] = {"Nord","Ext ","All "};
 int keyOffset=-12;
 
 // notes being played
-int notesPlaying = 0;
+//int notesPlaying = 0;
 
 //midi play stuff
 elapsedMicros delay_time;
@@ -414,45 +435,47 @@ void setup()
     
     MIDI.setHandleNoteOn(handleNoteOnNord);  // Put only the name of the function
     MIDI2.setHandleNoteOn(handleNoteOnNord);
+    MIDI3.setHandleNoteOn(handleNoteOnNord);
     midi1.setHandleNoteOn(handleNoteOnNord);
     
 
     // Do the same for NoteOffs
     MIDI.setHandleNoteOff(handleNoteOffNord);
     MIDI2.setHandleNoteOff(handleNoteOffNord);
+    MIDI3.setHandleNoteOff(handleNoteOffNord);
     midi1.setHandleNoteOff(handleNoteOffNord);
 
-    // handle midi cc
-    MIDI.setHandleControlChange(handleCCNord);
-    MIDI2.setHandleControlChange(handleCC);
-    midi1.setHandleControlChange(handleCC);
+    // handle midi cc only for NORD only
+    MIDI.setHandleControlChange(handleCCNord);  
 
-    //handle midi pc
-    MIDI.setHandleProgramChange(handlePC);
-    MIDI2.setHandleProgramChange(handlePC);
-    midi1.setHandleProgramChange(handlePC);
+    //handle midi pc for USB only
+    midi1.setHandleProgramChange(handlePCNord);
     
     // handle midi cloc
     MIDI.setHandleClock(myClock);
     MIDI2.setHandleClock(myClock);
+    MIDI3.setHandleClock(myClock);    
     midi1.setHandleClock(myClock);
 
 
     // handle midi start
     MIDI.setHandleStart(myStart);
     MIDI2.setHandleStart(myStart);
+    MIDI3.setHandleStart(myStart);
     midi1.setHandleStart(myStart);
 
 
     // handle stop
     MIDI.setHandleStop(myStop);
     MIDI2.setHandleStop(myStop);
+    MIDI3.setHandleStop(myStop);
     midi1.setHandleStop(myStop);
 
 
     // handle continue
     MIDI.setHandleContinue(myContinue);
     MIDI2.setHandleContinue(myContinue);
+    MIDI3.setHandleContinue(myContinue);
     midi1.setHandleContinue(myContinue);
 
 
@@ -460,10 +483,12 @@ void setup()
     myusb.begin();
     MIDI.begin(MIDI_CHANNEL_OMNI);
     MIDI2.begin(MIDI_CHANNEL_OMNI);
+    MIDI3.begin(MIDI_CHANNEL_OMNI);
 
     // turn midi thru off
     MIDI.turnThruOff();
     MIDI2.turnThruOff();
+    MIDI3.turnThruOff();
 
     // Initiate led for output
     pinMode(ledPin, OUTPUT);
@@ -508,6 +533,10 @@ void loop()
 
     // Call serial midi2
     if(MIDI2.read()){ 
+    }  
+
+    //Call serial midi3
+     if(MIDI3.read()){ 
     }  
 
     // Call USB midi
@@ -561,6 +590,8 @@ void myStart() {
   //send start to 5 pin midi ports
   MIDI.sendRealTime(MIDI_START);
   MIDI2.sendRealTime(MIDI_START);
+  MIDI3.sendRealTime(MIDI_START);
+  
   
   #ifdef DEBUG
     Serial.println("START"); 
@@ -573,6 +604,7 @@ void myStop() {
  // send stop to 5 pin midi ports
  MIDI.sendRealTime(MIDI_STOP);
  MIDI2.sendRealTime(MIDI_STOP);
+ MIDI3.sendRealTime(MIDI_STOP);
    
  #ifdef DEBUG
   Serial.println("STOP"); 
@@ -592,6 +624,7 @@ void myClock() {
   // send midi clock to 5 pin midi ports
     MIDI.sendRealTime(MIDI_TIMING_CLOCK);
    MIDI2.sendRealTime(MIDI_TIMING_CLOCK);
+   MIDI3.sendRealTime(MIDI_TIMING_CLOCK);
   
   // LED stuff
   if ((tempoCount >= 0) && (tempoCount < 12)) {
@@ -778,7 +811,7 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
     else {
          MIDI2.sendNoteOn(note, velocity, channel);
       }
-    notesPlaying=notesPlaying+1; 
+    //notesPlaying=notesPlaying+1; 
   }
 
   void handleNoteOffNord(byte channel, byte note, byte velocity)
@@ -948,7 +981,7 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
     else {
          MIDI2.sendNoteOff(note, velocity, channel);
       }
-    notesPlaying=notesPlaying-1; 
+    //notesPlaying=notesPlaying-1; 
 }
 
 void handleCCNord(byte channel, byte control, byte value) {
@@ -969,6 +1002,7 @@ void handleCCNord(byte channel, byte control, byte value) {
     MIDI.sendControlChange(control,value,channel);
     }
   }
+
 
 
 
@@ -1000,7 +1034,7 @@ void handleNoteOn(byte channel, byte note, byte velocity)
     
    MIDI.sendNoteOn(temp_note + project.transpose, velocity, channel);    
    MIDI2.sendNoteOn(temp_note + project.transpose, velocity, channel);   
-   notesPlaying=notesPlaying+1; 
+   //notesPlaying=notesPlaying+1; 
    
     #ifdef DEBUG
         Serial.print("Note send: ");
@@ -1087,7 +1121,7 @@ void handleNoteOn(byte channel, byte note, byte velocity)
         // play only to L1 channel
         MIDI.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
         MIDI2.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
-        notesPlaying=notesPlaying+1; 
+        //notesPlaying=notesPlaying+1; 
        
        #ifdef DEBUG
         Serial.print("Note ON: ");
@@ -1106,7 +1140,7 @@ void handleNoteOn(byte channel, byte note, byte velocity)
        MIDI2.sendNoteOn(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
        MIDI2.sendNoteOn(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
 
-       notesPlaying=notesPlaying+2; 
+       //notesPlaying=notesPlaying+2; 
       
       #ifdef DEBUG
         Serial.print("Note ON: ");
@@ -1125,7 +1159,7 @@ void handleNoteOn(byte channel, byte note, byte velocity)
   if ((channel==lead_channel && ((note>=(24+keyOffset) && note <(48+keyOffset)) || (note>=(72+keyOffset) && note <(96+keyOffset)) || (note >=(120+keyOffset) && note<(128+keyOffset))))) {
       MIDI.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel);            
       MIDI2.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
-      notesPlaying=notesPlaying+1; 
+      //notesPlaying=notesPlaying+1; 
       
      #ifdef DEBUG         
       Serial.print("Note ON: ");
@@ -1319,8 +1353,6 @@ void handleNoteOn(byte channel, byte note, byte velocity)
    //print modes and octaves and notes laying
    Serial.print("Bass mode: ");
    Serial.print(bassMode);
-   Serial.print(" Notesplaying : ");
-   Serial.print(notesPlaying);
    Serial.println();
   #endif
      
@@ -1353,7 +1385,7 @@ void handleNoteOff(byte channel, byte note, byte velocity)
  
      MIDI.sendNoteOff(temp_note + project.transpose, velocity, channel);    
      MIDI2.sendNoteOff(temp_note + project.transpose, velocity, channel);   
-     notesPlaying=notesPlaying-1; 
+     //notesPlaying=notesPlaying-1; 
    
     #ifdef DEBUG
         Serial.print("Note send: ");
@@ -1364,83 +1396,15 @@ void handleNoteOff(byte channel, byte note, byte velocity)
     #endif          
  
   }
-  
-      
- 
-  //BASSCHANNEL
-  /*
-  if (channel==bass_channel)
-  {
-    // send to both  
-    if (bassMode==0)
-     {    
-      MIDI.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);    
-      MIDI.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
-      MIDI2.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);    
-      MIDI2.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
-      notesPlaying=notesPlaying-2; 
-
-      #ifdef DEBUG
-        Serial.print("Note send: ");
-        Serial.print(note + (project.b1_oct*12) + project.transpose);
-        Serial.print(" Channel: ");
-        Serial.print(project.b1_channel);
-        Serial.println();
-              
-     
-        Serial.print("Note send: ");
-        Serial.print(note + (project.b2_oct*12) + project.transpose);
-        Serial.print(" Channel: ");
-        Serial.print(project.b2_channel);
-        Serial.println();
-      #endif
-     }
-     
-    // only left
-    if (bassMode==-1)
-     { 
-      MIDI.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
-      MIDI2.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
-      notesPlaying=notesPlaying-1; 
-
-       #ifdef DEBUG     
-        Serial.print("Note send: ");
-        Serial.print(note + (project.b1_oct*12) + project.transpose);
-        Serial.print(" Channel: ");
-        Serial.print(project.b1_channel);
-        Serial.println();
-      #endif
-     }
-
-    // only right
-    if (bassMode==1)
-     { 
-      
-      MIDI.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
-      MIDI2.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
-      notesPlaying=notesPlaying-1; 
-  
-      #ifdef DEBUG
-        Serial.print("Note send: ");
-        Serial.print(note + (project.b2_oct*12) + project.transpose);
-        Serial.print(" Channel: ");
-        Serial.print(project.b2_channel);
-        Serial.println();
-      #endif
-       
-     }
-  }
-  */
 
   // if channel is lead AND every first two octaves
-
   if ((channel==lead_channel && ((note>=0 && note <(24+keyOffset)) || (note>=(48+keyOffset) && note <(72+keyOffset)) || (note >=(96+keyOffset) && note<(120+keyOffset))))) {
       
       if ((bassMode==0) || (bassMode==2)) {
         // play only to L1 channel
         MIDI.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
         MIDI2.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);
-        notesPlaying=notesPlaying-1; 
+       // notesPlaying=notesPlaying-1; 
        
        #ifdef DEBUG
         Serial.print("Note ON: ");
@@ -1459,7 +1423,7 @@ void handleNoteOff(byte channel, byte note, byte velocity)
        MIDI2.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);
        MIDI2.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
 
-       notesPlaying=notesPlaying-2; 
+      // notesPlaying=notesPlaying-2; 
       
       #ifdef DEBUG
         Serial.print("Note ON: ");
@@ -1475,11 +1439,10 @@ void handleNoteOff(byte channel, byte note, byte velocity)
     }
 
   // if channel is lead AND every last two octaves
-
   if ((channel==lead_channel && ((note>=(24+keyOffset) && note <(48+keyOffset)) || (note>=(72+keyOffset) && note <(96+keyOffset)) || (note >=(120+keyOffset) && note<(128+keyOffset))))) {
       MIDI.sendNoteOff(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel);            
       MIDI2.sendNoteOff(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
-      notesPlaying=notesPlaying-1; 
+      //notesPlaying=notesPlaying-1; 
       
      #ifdef DEBUG         
       Serial.print("Note ON: ");
@@ -1491,43 +1454,6 @@ void handleNoteOff(byte channel, byte note, byte velocity)
     }
 
 
-
-  /*
-  // if incoming is lead note
-  if ((channel==project.l1_channel) || (channel==project.l2_channel))
-  {
-    // apply transpose and / or octave to the relevant output
-
-    if (channel==project.l1_channel) {
-      MIDI.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, channel);
-      MIDI2.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, channel);
-
-    #ifdef DEBUG
-      Serial.print("Note send: ");
-      Serial.print(note + (project.l1_oct*12) + project.transpose);
-      Serial.print("Channel: ");
-      Serial.print(project.l1_channel);
-      Serial.println();   
-    #endif
-    }
-
-    if (channel==project.l2_channel) {
-      MIDI.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, channel);            
-      MIDI2.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, channel); 
-
-     #ifdef DEBUG         
-      Serial.print("Note send: ");
-      Serial.print(note + (project.l2_oct*12) + project.transpose);
-      Serial.print(" Channel: ");
-      Serial.print(project.l2_channel);
-      Serial.println();     
-    #endif
-    }
-
-    notesPlaying=notesPlaying+1; 
-   
-  }
-  */
 
   // if incoming is for sample, do mapping
   if ((channel==sample_channel) || (channel==mpc_channel))
@@ -1673,11 +1599,34 @@ void handleNoteOff(byte channel, byte note, byte velocity)
    //print modes and octaves and notes laying
    Serial.print("Bass mode: ");
    Serial.print(bassMode);
-   Serial.print(" Notesplaying : ");
-   Serial.print(notesPlaying);
    Serial.println();
   #endif
      
+}
+
+void handlePCNord(byte channel, byte program) {
+
+  #ifdef DEBUG_PC
+    Serial.print("*Incoming MIDI PC* ");
+    Serial.print(" Channel:");
+    Serial.print(channel);
+    Serial.print(" Program change:");
+    Serial.println(program); 
+  #endif
+  
+  //if 
+  if (channel==project.nord_global_channel) {
+    //send first BANK message
+    MIDI.sendControlChange(32,0,channel);
+    // then program change
+    MIDI.sendProgramChange(program,channel);
+    }
+  else if (channel==project.mpc_global_channel) {
+    MIDI3.sendProgramChange(program,channel);
+    }
+  else {
+    MIDI2.sendProgramChange(program,channel);
+    }
 }
 
 void handlePC(byte channel, byte program) {
@@ -1723,7 +1672,7 @@ void handleCC(byte channel, byte control, byte value) {
   #endif
 
   // channel is lead1
-  if (channel==lead_channel && (notesPlaying==0)) {
+  if (channel==lead_channel) {
 
 
   if (control==MIDI_CC_BASS && value==127) {
@@ -2670,7 +2619,7 @@ void resetMidi() {
 
  //reset "notes_played"
 
-  notesPlaying = 0;
+ // notesPlaying = 0;
   
   }
 
@@ -3003,7 +2952,6 @@ void updateLcdScreen() {
     switch (menuMode) {
    case OCTAVE: 
 
-     if (notesPlaying==0) {
         if (pot3State==ACTIVE) {        
           tempValue = map(pot3.getValue(),0,1023,-4,4);          
           if (project.b1_oct==tempValue) {
@@ -3047,12 +2995,12 @@ void updateLcdScreen() {
             lcdMainMenu(OCTAVE);
           } 
         }
-     }
+     
     
     break;
 
     case TEMPO_TP:
-     if (notesPlaying==0) {
+ 
 
             if (pot5State==ACTIVE) {        
               tempValue = map(pot5.getValue(),0,1023,minTempo,maxTempo);          
@@ -3076,7 +3024,7 @@ void updateLcdScreen() {
               }        
             }
             
-        }
+   
       break;
 
     case KEYS:
