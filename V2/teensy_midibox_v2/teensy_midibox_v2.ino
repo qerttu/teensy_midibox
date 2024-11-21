@@ -3,7 +3,7 @@
 Next version to-do:
 *****
 
-2.05.3
+2.05.4
 - Added handlers for MIDI port3
 
 2.05.2
@@ -65,7 +65,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.05.3";
+const char version_number[] = "v2.05.4";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -805,11 +805,13 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
 //        break;
       }
 
-      // SEND ONLY TO MIDI2
+      // SEND ONLY TO BOTH MIDI2 and MIDI3
       MIDI2.sendNoteOn(mappedNote, velocity, channel);
+      MIDI3.sendNoteOn(mappedNote, velocity, channel);
     } 
     else {
          MIDI2.sendNoteOn(note, velocity, channel);
+         MIDI3.sendNoteOn(note, velocity, channel);
       }
     //notesPlaying=notesPlaying+1; 
   }
@@ -977,9 +979,11 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
 
       // SEND ONLY TO MIDI2
       MIDI2.sendNoteOff(mappedNote, velocity, channel);
+      MIDI3.sendNoteOff(mappedNote, velocity, channel);
     } 
     else {
          MIDI2.sendNoteOff(note, velocity, channel);
+         MIDI3.sendNoteOff(note, velocity, channel);
       }
     //notesPlaying=notesPlaying-1; 
 }
