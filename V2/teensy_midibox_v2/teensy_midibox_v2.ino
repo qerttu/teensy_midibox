@@ -2,6 +2,11 @@
 
 Next version to-do:
 *****
+2.05.7
+- Added data rows for scene type messages
+
+2.05.6
+- Added data rows for 3 pc messages per scene
 
 2.05.4
 - Added handlers for MIDI port3
@@ -65,7 +70,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.05.4";
+const char version_number[] = "v2.05.6";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -79,7 +84,7 @@ const char version_number[] = "v2.05.4";
 
 //#define DEBUG
 //#define DEBUG2
-#define DEBUG_PC
+//#define DEBUG_PC
 //#define DEBUG_SYSEX
 //#define DEBUG_SYSEX2      
 
@@ -94,6 +99,7 @@ const char version_number[] = "v2.05.4";
 #define BACK 8
 #define numberOfModes 8
 #define NUMBER_SCENES 8
+#define NUMBER_PC_INSTRUMENTS 3
 
 #define MAIN 0
 #define SUB 1
@@ -364,7 +370,11 @@ int write_count = 0;
 
 // BEFORE OFFSET -- track sysex: 32 tracks, 112 (32 steps) each + global settings + 6 mute scenes --> 39 tracks in total
 // track sysex: 32 tracks, 144 (32 steps + offset 32) each + global settings + 8 mute scenes + 2x8 pc per scene --> 49 tracks in total
-uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES][144];
+
+// **** DATA FILE SYSEX ***
+// NUMBER OF ROWS = track count (32) + global settins (1) + 8 mute scenes (8) + 3 x PC data per scene (3x8) + scene type (8) = 73
+// LENGTH OF A ROW = 32 steps + offset = 144
+uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES][144];
 
 // project files sysex
 uint8_t sysex_files[10];
@@ -2551,21 +2561,27 @@ void storeSysex(const byte *data, unsigned int size) {
     //   cleanArray(tr);
     // }
 
-    // in case global settings
+    //global settings
     if (tr == 127) {
       tr = NUMBER_OF_TRACKS;
     //  cleanArray(tr);
       }
       
-    // in case mute track settings
+    // mute track settings
     if (tr == 126) {
       tr = NUMBER_OF_TRACKS + 1 + data[5];
       }
 
-    // in case mute track settings
+    //PC messages
     if (tr == 123) {
-      tr = NUMBER_OF_TRACKS + 1 + NUMBER_SCENES + data[5];
+      tr = NUMBER_OF_TRACKS + 1 + NUMBER_SCENES + ((NUMBER_PC_INSTRUMENTS*data[5])+data[6]);
       }
+
+    // scene types
+    if (tr == 122) {
+      tr = NUMBER_OF_TRACKS + 1 + NUMBER_SCENES + (NUMBER_PC_INSTRUMENTS*NUMBER_SCENES)+data[5];
+      }
+      
           
     #ifdef DEBUG_SYSEX2      
          Serial.print("Saving sysex, track: ");
