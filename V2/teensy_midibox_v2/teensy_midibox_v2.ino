@@ -70,7 +70,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.05.6";
+const char version_number[] = "v2.05.7";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
