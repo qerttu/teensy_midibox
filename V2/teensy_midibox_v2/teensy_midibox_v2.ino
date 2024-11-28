@@ -2,7 +2,7 @@
 
 Next version to-do:
 *****
-2.05.7
+2.05.8
 - Added data rows for scene type messages
 
 2.05.6
@@ -70,7 +70,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.05.7";
+const char version_number[] = "v2.05.8";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -669,9 +669,11 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
       }
       
       if (bassMode==MODE_EXT || bassMode==MODE_BOTH) { 
-        //OTHER BASSES TO MIDI2 (EXT)
+        //OTHER BASSES TO MIDI2 (EXT) and MIDI3 (SEQ)
         MIDI2.sendNoteOn(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);  
-        MIDI2.sendNoteOn(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);  
+        MIDI2.sendNoteOn(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
+        MIDI3.sendNoteOn(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);  
+        MIDI3.sendNoteOn(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);
       }
     }
 
@@ -684,9 +686,11 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
       }
 
       if (bassMode==MODE_EXT || bassMode==MODE_BOTH) { 
-        //OTHER LEADS TO MIDI2 (EXT)
+        //OTHER LEADS TO MIDI2 (EXT) and MIDI3 (SEQ)
         MIDI2.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);  
         MIDI2.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
+        MIDI3.sendNoteOn(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);  
+        MIDI3.sendNoteOn(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
       }
     }
     // if recived on EXT synth channels, add project transpose + octave and send to MIDI2
@@ -844,6 +848,8 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
         //OTHER BASSES TO MIDI2 
         MIDI2.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);  
         MIDI2.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);  
+        MIDI3.sendNoteOff(note + (project.b1_oct*12) + project.transpose, velocity, project.b1_channel);  
+        MIDI3.sendNoteOff(note + (project.b2_oct*12) + project.transpose, velocity, project.b2_channel);        
        }
     }
 
@@ -860,6 +866,8 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
         //OTHER LEADS TO MIDI2 
         MIDI2.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);  
         MIDI2.sendNoteOff(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel); 
+        MIDI3.sendNoteOff(note + (project.l1_oct*12) + project.transpose, velocity, project.l1_channel);  
+        MIDI3.sendNoteOff(note + (project.l2_oct*12) + project.transpose, velocity, project.l2_channel);         
       }
    }
     // if recived on EXT synth channels, add project transpose + octave and send to MIDI2
