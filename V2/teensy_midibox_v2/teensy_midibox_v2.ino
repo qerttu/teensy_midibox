@@ -2,6 +2,9 @@
 
 Next version to-do:
 *****
+2.05.9
+- Added "USB" mode to send incoming midi messages to usbmidi only
+
 2.05.8
 - Added data rows for scene type messages
 
@@ -70,7 +73,7 @@ Next version to-do:
 
 */
 
-const char version_number[] = "v2.05.8";
+const char version_number[] = "v2.05.9";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -132,6 +135,7 @@ const char version_number[] = "v2.05.8";
 #define MODE_NORD 0
 #define MODE_EXT 1
 #define MODE_BOTH 2
+#define MODE_USB 3
 
 #define MAX_BUFFER 64
 
@@ -152,18 +156,18 @@ const int bs_pin = 10;
 
 //lcd
 //this is for the PROD
-//const int rs = 37, en = 36, d4 = 41, d5 = 40, d6 = 39, d7 = 38;
+const int rs = 37, en = 36, d4 = 41, d5 = 40, d6 = 39, d7 = 38;
 
 // this is for the PROTO
-const int rs = 31, en = 32, d4 = 27, d5 = 28, d6 = 29, d7 = 30;
+//const int rs = 31, en = 32, d4 = 27, d5 = 28, d6 = 29, d7 = 30;
 
 
 //rotary enc
 // this is for PROD
-//const int dt = 5, clk = 6;
+const int dt = 5, clk = 6;
 
 // this is for PROTO
-const int dt = 2, clk = 3;
+//const int dt = 2, clk = 3;
 
 
 // pots initials
@@ -290,7 +294,7 @@ int charLocation = 0;
 int bassMode=MODE_BOTH;
 
 //mode labels (4 character of length)
-String bassmode_labels[3] = {"Nord","Ext ","All "};
+String bassmode_labels[4] = {"Nord","Ext ","All ","USB "};
 
 // keyboard offset
 int keyOffset=-12;
@@ -662,7 +666,7 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
 
     // if received on NORD split channels, send it back to NORD and EXT synths
     if (channel==project.nord_b1_channel || channel==project.nord_b2_channel) {
-   
+
       if (bassMode==MODE_NORD || bassMode==MODE_BOTH) {
         MIDI.sendNoteOn(note + project.transpose, velocity, project.nord_b1_channel);
         MIDI.sendNoteOn(note + project.transpose, velocity, project.nord_b2_channel);
@@ -707,8 +711,16 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
           if (channel==project.l2_channel) {
             temp_note = note + project.l2_oct*12;
           }
-          // send only to MIDI2 (EXT)
+
+        if (bassMode==MODE_USB) {       
+          usbMIDI.sendNoteOn(temp_note + project.transpose, velocity, channel);
+          }
+        else {
+          // send to MIDI2 (EXT) and MIDI3
           MIDI2.sendNoteOn(temp_note + project.transpose, velocity, channel);  
+          MIDI3.sendNoteOn(temp_note + project.transpose, velocity, channel);  
+        }
+
       }
     // if SAMPLE channel
     else if ((channel==sample_channel) || (channel==mpc_channel))
@@ -819,13 +831,24 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
 //        break;
       }
 
+      if (bassMode==MODE_USB) {
+        usbMIDI.sendNoteOn(mappedNote, velocity, channel);
+      }
+      else {
       // SEND ONLY TO BOTH MIDI2 and MIDI3
       MIDI2.sendNoteOn(mappedNote, velocity, channel);
       MIDI3.sendNoteOn(mappedNote, velocity, channel);
+      }
+
     } 
     else {
+        if (bassMode==MODE_USB) {
+          usbMIDI.sendNoteOn(note, velocity, channel);
+        }
+        else {
          MIDI2.sendNoteOn(note, velocity, channel);
          MIDI3.sendNoteOn(note, velocity, channel);
+        }
       }
     //notesPlaying=notesPlaying+1; 
   }
@@ -884,8 +907,16 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
           if (channel==project.l2_channel) {
             temp_note = note + project.l2_oct*12;
           }
+
+          if (bassMode==MODE_USB) {       
+             usbMIDI.sendNoteOff(temp_note + project.transpose, velocity, channel);  
+          }
+          else {
           // send only to MIDI2 (EXT)
-          MIDI2.sendNoteOff(temp_note + project.transpose, velocity, channel);  
+          MIDI2.sendNoteOff(temp_note + project.transpose, velocity, channel);
+          MIDI3.sendNoteOff(temp_note + project.transpose, velocity, channel);    
+          }
+
       }
     else if ((channel==sample_channel) || (channel==mpc_channel))
     {
@@ -995,13 +1026,26 @@ void handleNoteOnNord(byte channel, byte note, byte velocity)
 //        break;
       }
 
-      // SEND ONLY TO MIDI2
-      MIDI2.sendNoteOff(mappedNote, velocity, channel);
-      MIDI3.sendNoteOff(mappedNote, velocity, channel);
+      if (bassMode==MODE_USB) {       
+          usbMIDI.sendNoteOff(mappedNote, velocity, channel);
+      }
+      else {
+           // SEND TO MIDI2 and MIDI3 
+          MIDI2.sendNoteOff(mappedNote, velocity, channel);
+          MIDI3.sendNoteOff(mappedNote, velocity, channel);   
+      }
+
+
     } 
     else {
-         MIDI2.sendNoteOff(note, velocity, channel);
-         MIDI3.sendNoteOff(note, velocity, channel);
+          if (bassMode==MODE_USB) {       
+              usbMIDI.sendNoteOff(note, velocity, channel);
+          }
+          else {
+            MIDI2.sendNoteOff(note, velocity, channel);
+            MIDI3.sendNoteOff(note, velocity, channel);
+          }
+
       }
     //notesPlaying=notesPlaying-1; 
 }
@@ -2849,11 +2893,12 @@ void lcdSubMenu(byte currentMode) {
 
         case MODE_BOTH:
           lcd.print(bassmode_labels[MODE_BOTH]);
-        break;        
-        }
-     
+        break;  
 
-      // transpose
+        case MODE_USB:
+          lcd.print(bassmode_labels[MODE_USB]);
+        break;  
+      }
       lcd.setCursor(12,1);
       lcd.print("T:");
       lcd.print(project.transpose);
@@ -3682,10 +3727,15 @@ void updateEnc() {
               lcd.setCursor(7,1);
               lcd.print(bassmode_labels[MODE_EXT]);           
             }
-           else  {
+           else if(temp_mode==MODE_BOTH)  {
               bassMode=MODE_BOTH;
               lcd.setCursor(7,1);
               lcd.print(bassmode_labels[MODE_BOTH]);           
+            }
+            else {
+              bassMode=MODE_USB;
+              lcd.setCursor(7,1);
+              lcd.print(bassmode_labels[MODE_USB]); 
             }      
           }
 
