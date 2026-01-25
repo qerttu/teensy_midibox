@@ -1,6 +1,8 @@
 /*
 
 *****
+2.06.1
+- Testing project files stored in subdirectories, in order to allow different "sets" of 32 slots in Lounchpad.
 
 2.05.10
 - Changed default values for octaves and bassmode
@@ -76,7 +78,7 @@
 
 */
 
-const char version_number[] = "v2.05.10";
+const char version_number[] = "v2.06.1";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -387,8 +389,10 @@ uint8_t sysex_data[NUMBER_OF_TRACKS+1+NUMBER_SCENES+NUMBER_SCENES+NUMBER_SCENES+
 uint8_t sysex_files[10];
 uint8_t sysex_fileExist[8];
 
-//project list
+//project list and set directory as root folder to "Auto" for autoloading 
 Project projectList[NUMBER_OF_PROJECTS];
+char dir[] = "/Auto/";
+
 byte off_set = 0;
 int selectedProject=0;
 byte filelist_count = 0;
@@ -1880,10 +1884,16 @@ void sdCardToArray(byte cp) {
       Serial.print("** CURRENT PROJECT: ");
       Serial.print(cp);
     #endif
-  
+
+    
+
     char filename[6];
+    char dir_filename[20];
+    
     sprintf (filename, "%02d.txt",cp);
-    dataFile = SD.open(filename);
+    sprintf (dir_filename, "%s%s",dir,filename);
+    //dir_filename = strcat(dir, filename);
+    dataFile = SD.open(dir_filename);
 
 
     
@@ -1921,10 +1931,14 @@ void writeTracksDataSdCard(byte cp) {
   if (cp<255) {  
     // remove the file first
     char filename[6];
+    char dir_filename[20];
+
     sprintf (filename, "%02d.txt",cp);
-    SD.remove(filename);
+    sprintf (dir_filename, "%s%s",dir,filename);
+    
+    SD.remove(dir_filename);
       
-    dataFile = SD.open(filename,FILE_WRITE);
+    dataFile = SD.open(dir_filename,FILE_WRITE);
 
     if (!dataFile) {
     #ifdef DEBUG
@@ -1969,10 +1983,14 @@ void writeProjectSdCard(byte cp) {
   /**WRITE PROJECT FILE*******/
     // remove the file first
     char filename2[7];
+    char dir_filename2[20];
+    
     sprintf (filename2, "_%02d.txt",cp);
-    SD.remove(filename2);
+    sprintf (dir_filename2, "%s%s",dir,filename2);
+    
+    SD.remove(dir_filename2);
       
-    dataFile = SD.open(filename2,FILE_WRITE);
+    dataFile = SD.open(dir_filename2,FILE_WRITE);
 
     if (!dataFile) {
     #ifdef DEBUG
@@ -2421,16 +2439,21 @@ void loadProjectSDCard(byte id) {
     cleanProjectData();
     
     char filename[7];
+    char dir_filename[20];
 
         // set temporary project name as filename
-        sprintf (filename, "%02d.txt",id);   
-        if (SD.exists(filename)) {
+        sprintf (filename, "%02d.txt",id);
+        sprintf (dir_filename, "%s%s",dir,filename);
+           
+        if (SD.exists(dir_filename)) {
           project.name = filename;
           }
 
         // check if project file exisits
-        sprintf (filename, "_%02d.txt",id);        
-        if (SD.exists(filename)) {
+        sprintf (filename, "_%02d.txt",id);
+        sprintf (dir_filename, "%s%s",dir,filename);
+                        
+        if (SD.exists(dir_filename)) {
           
           #ifdef DEBUG
           Serial.print("Project file found:");
@@ -2438,7 +2461,7 @@ void loadProjectSDCard(byte id) {
           #endif
           
           project.name = filename;
-          dataFile = SD.open(filename);
+          dataFile = SD.open(dir_filename);
           
           if (!dataFile) {
           #ifdef DEBUG
@@ -2559,6 +2582,7 @@ void sendOutProjectNumber(byte p) {
 void sendProjectExist() {
 
     char filename[6];
+    char dir_filename[20];
   
     // prepare the start bits
     sysex_fileExist[0] = 240;
@@ -2570,8 +2594,9 @@ void sendProjectExist() {
     sysex_fileExist[7] = 247;
 
      for (byte i = 0; i < NUMBER_OF_PROJECTS; i++) {  
-        sprintf (filename, "%02d.txt",i);        
-        if (SD.exists(filename)) {
+        sprintf (filename, "%02d.txt",i);
+        sprintf (dir_filename, "%s%s",dir,filename);        
+        if (SD.exists(dir_filename)) {
             // light up led
         sysex_fileExist[5] = i; 
         midi1.sendSysEx(sizeof(sysex_fileExist), sysex_fileExist, true);
@@ -4038,7 +4063,7 @@ void updateProjectList() {
   filelist_count=0;
 
   // open file
-   dataFile = SD.open("/"); 
+   dataFile = SD.open(dir); 
 
   //lcd update project list
     lcd.setCursor(0,0);
