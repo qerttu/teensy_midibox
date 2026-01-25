@@ -2,6 +2,9 @@
 
 *****
 
+2.05.10
+- Changed default values for octaves and bassmode
+
 2.05.9
 - Added "USB" mode to send incoming midi messages to usbmidi only
 
@@ -73,7 +76,7 @@
 
 */
 
-const char version_number[] = "v2.05.9";
+const char version_number[] = "v2.05.10";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -270,7 +273,7 @@ typedef struct{
 
 
 // initalise project 
-Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de,nord_b1,nord_b2,nord_l1,nord_l2,nord_global,mpc_global}; 
+Project project = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,1,0,0,0,meeb,brute,keys,de,nord_b1,nord_b2,nord_l1,nord_l2,nord_global,mpc_global}; 
 
 //notebuffer
 //TODO NOTEBUFFER FUNCTION
@@ -287,10 +290,10 @@ int cursorLocation = 0;
 boolean editChar = false;
 int charLocation = 0;
 
-//bassmodes
 // 0 = Nord only
 // 1 = External synths only
-// 2 = Both
+// 2 = All
+// 3 = USB
 int bassMode=MODE_BOTH;
 
 //mode labels (4 character of length)
@@ -564,7 +567,7 @@ void loop()
     updateEncButton();
 
    //update other buttons and switches
-   updateButtons();
+   //updateButtons();
     
     //update pots
    // updatePots();
@@ -4147,7 +4150,7 @@ void sortProjectList() {
 
 Project getProjectById(byte id) {
 
-Project emptyProject = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,0,0,0,0,meeb,brute,keys,de}; 
+Project emptyProject = {0,0,150,150,{150,150,150,150,150,150,150,150},0,"EMPTY PRG",255,1,0,0,0,meeb,brute,keys,de}; 
 
     for(int i=0; i<(filelist_count); i++) {
       if (projectList[i].id == id) {
