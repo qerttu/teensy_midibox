@@ -1,7 +1,7 @@
 /*
 
-Next version to-do:
 *****
+
 2.05.9
 - Added "USB" mode to send incoming midi messages to usbmidi only
 
