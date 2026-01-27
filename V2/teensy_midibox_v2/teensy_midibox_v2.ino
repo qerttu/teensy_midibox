@@ -1,6 +1,10 @@
 /*
 
 *****
+
+2.06.2
+- Sub directory support done. Default directory (needs to be in the SD card): "Auto". Others can be added now and selected from the menu.
+
 2.06.1
 - Testing project files stored in subdirectories, in order to allow different "sets" of 32 slots in Lounchpad.
 
@@ -91,7 +95,7 @@ const char version_number[] = "v2.06.1";
 #include <Encoder.h>
 
 //#define DEBUG
-//#define DEBUG2
+#define DEBUG2
 //#define DEBUG_PC
 //#define DEBUG_SYSEX
 //#define DEBUG_SYSEX2      
@@ -104,8 +108,9 @@ const char version_number[] = "v2.06.1";
 #define MIDICC 5
 #define SAVE 6
 #define CLEAN 7
-#define BACK 8
-#define numberOfModes 8
+#define DIR 8
+#define BACK 9
+#define numberOfModes 9
 #define NUMBER_SCENES 8
 #define NUMBER_PC_INSTRUMENTS 3
 
@@ -391,7 +396,9 @@ uint8_t sysex_fileExist[8];
 
 //project list and set directory as root folder to "Auto" for autoloading 
 Project projectList[NUMBER_OF_PROJECTS];
-char dir[] = "/Auto/";
+char dir[18] = "/Auto/";
+char dirList[16][18];
+int selectedDir=0;
 
 byte off_set = 0;
 int selectedProject=0;
@@ -2838,7 +2845,7 @@ void lcdMainMenu(byte currentMode) {
     break;
   
   case MIDICC:
-    lcd.print("Ch> B1 B2 L1 L2");
+    lcd.print("Ch: B1 B2 L1 L2");
     lcd.setCursor(4,1);
     lcd.print(project.b1_channel);
     lcd.setCursor(7,1);
@@ -2855,6 +2862,14 @@ void lcdMainMenu(byte currentMode) {
   
   case CLEAN:
     lcd.print("New project >");
+    break;
+
+  case DIR:
+    lcd.print("Change dir >");
+    lcd.setCursor(0,1);
+    lcd.print("(");
+    lcd.print(dir);
+    lcd.print(")");
     break;
   
   case BACK:
@@ -2986,7 +3001,26 @@ void lcdSubMenu(byte currentMode) {
         lcd.print("< BACK");
         }
 
-    break;    
+    break;
+
+    case DIR:
+    
+      lcd.setCursor(0,0);
+      lcd.print("Directory >");
+      lcd.setCursor(0,1);
+      lcd.print("                ");
+      lcd.setCursor(0,1);
+      if (selectedDir>=0) {
+        lcd.print("..");
+        lcd.print(dirList[selectedDir]);
+      }
+      else
+      {
+        lcd.print("< BACK");
+        }
+
+    break;  
+        
 
     case SAVE: 
       lcd.setCursor(0,0);
@@ -3417,6 +3451,13 @@ void updateEncButton() {
          lcdSubMenu(99);      
         }
 
+       // ******************** DIR SELECT ***************
+       if (menuMode==DIR) {
+          updateDirList();
+          menuState=SUB;
+         lcdSubMenu(99);      
+        }
+
         // ******************* SAVE **************
        if (menuMode==SAVE) {
           menuState=SUB;
@@ -3524,12 +3565,33 @@ void updateEncButton() {
         
             // send out project sysex
             sendOutProject(project.id);
+
+             //update dirlist
+             updateDirList();
           }
           
           // set mode to PROJECT
           menuMode=PROJECT;
           menuState=SUB;
           lcdSubMenu(99);
+        }
+
+      //*********** DIR SELECT *****************
+       else if (menuMode==DIR) {
+          if (selectedDir>=0) {
+             sprintf (dir, "%s",dirList[selectedDir]);
+                 #ifdef DEBUG2
+                  Serial.print("Directory: ");
+                  Serial.println(dir);
+                #endif
+    
+             updateProjectList();
+          }
+          
+          // set mode to PROJECT
+        menuMode = DIR;
+        menuState=MAIN;
+        lcdMainMenu(99);
         }
         
        // *********************** SAVE ************
@@ -3783,23 +3845,37 @@ void updateEnc() {
     // ************** LOAD *****************
     else if (menuState==SUB && menuMode==LOAD) {
 
-      if ((selectedProject+v)<0) {
-        selectedProject=-1;
-        }
-        
-      if (projectList[selectedProject+v].name!="") {
-          selectedProject = selectedProject+v;
-          #ifdef DEBUG2
-            Serial.print("Size of project list: ");
-           Serial.println(sizeof(projectList));
-            Serial.print("Selected project: ");
-           Serial.println(selectedProject);
-         #endif      
-        }
-     //}
+      if (((selectedProject+v)>=0) &&(selectedProject+v<sizeof(projectList))) {
+        if (projectList[selectedProject+v].name!="") {
+            selectedProject = selectedProject+v;
+            #ifdef DEBUG2
+              Serial.print("Size of project list: ");
+             Serial.println(sizeof(projectList));
+              Serial.print("Selected project: ");
+             Serial.println(selectedProject);
+           #endif      
+          }
+      }
        lcdSubMenu(LOAD);
     }
-
+    
+    // ****************** DIR SELECT ***************
+    else if (menuState==SUB && menuMode==DIR) {
+       if (((selectedDir+v)>=0)) {
+        if (dirList[selectedDir+v]!="") {
+            selectedDir = selectedDir+v;
+            #ifdef DEBUG2
+            Serial.print("SelectedDir: ");
+            Serial.println(selectedDir);
+              Serial.print("Size of dir list: ");
+             Serial.println(sizeof(dirList));
+              Serial.print("Selected dir: ");
+             Serial.println(dirList[selectedDir]);
+           #endif      
+          }
+      }
+       lcdSubMenu(DIR);      
+      }
 
    //*************** SAVE *****************
    else if(menuState==SUB && menuMode==SAVE) {
@@ -4050,6 +4126,42 @@ void updateMainMenuValue(int step) {
 }
 
 /*FILE LISTING*/
+
+void updateDirList() {
+
+  #ifdef DEBUG2
+   Serial.println("***** UpdateDirList ****");
+  #endif
+
+
+  //clear the current dirlist
+  memset(dirList, 0, sizeof(dirList));
+  filelist_count=0;
+
+    // open file
+   dataFile = SD.open("/"); 
+
+    while(true) {
+      File entry =  dataFile.openNextFile();
+      if (! entry) {
+        // no more files
+          #ifdef DEBUG2
+            Serial.println(filelist_count);
+            Serial.println("Done.");
+          #endif  
+      break;
+      }
+      if (entry.isDirectory()) {
+          sprintf(dirList[filelist_count],"/%s/",entry.name());
+          #ifdef DEBUG2
+            Serial.println(dirList[filelist_count]);
+          #endif  
+       filelist_count++;   
+      }   
+      entry.close();
+     }
+     dataFile.close();
+  }
 
 void updateProjectList() {
 
