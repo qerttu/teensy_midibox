@@ -1,6 +1,8 @@
 /*
 
 *****
+2.06.3
+- Fixed dir change last value
 
 2.06.2
 - Sub directory support done. Default directory (needs to be in the SD card): "Auto". Others can be added now and selected from the menu.
@@ -82,7 +84,7 @@
 
 */
 
-const char version_number[] = "v2.06.1";
+const char version_number[] = "v2.06.3";
 
 #include <MIDI.h>
 #include <ResponsiveAnalogRead.h>
@@ -398,7 +400,8 @@ uint8_t sysex_fileExist[8];
 Project projectList[NUMBER_OF_PROJECTS];
 char dir[18] = "/Auto/";
 char dirList[16][18];
-int selectedDir=0;
+uint8_t selectedDir=0;
+uint8_t numberOfDir=0;
 
 byte off_set = 0;
 int selectedProject=0;
@@ -3862,13 +3865,13 @@ void updateEnc() {
     // ****************** DIR SELECT ***************
     else if (menuState==SUB && menuMode==DIR) {
        if (((selectedDir+v)>=0)) {
-        if (dirList[selectedDir+v]!="") {
+        if (dirList[selectedDir+v] &&((selectedDir+v) < numberOfDir)) {
             selectedDir = selectedDir+v;
             #ifdef DEBUG2
             Serial.print("SelectedDir: ");
             Serial.println(selectedDir);
-              Serial.print("Size of dir list: ");
-             Serial.println(sizeof(dirList));
+              Serial.print("Lengtth of dir: ");
+             Serial.println(sizeof(dirList[selectedDir]));
               Serial.print("Selected dir: ");
              Serial.println(dirList[selectedDir]);
            #endif      
@@ -4161,6 +4164,7 @@ void updateDirList() {
       entry.close();
      }
      dataFile.close();
+     numberOfDir = filelist_count;
   }
 
 void updateProjectList() {
